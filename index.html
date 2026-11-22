@@ -1,0 +1,1836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SAARATHI (सारथि) — Sci-Fi HUD Edition</title>
+  <meta name="theme-color" content="#0a0a0c" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Saarathi" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230e0e10'/%3E%3Ccircle cx='50' cy='50' r='30' fill='none' stroke='%23ffffff' stroke-width='4' stroke-dasharray='4 6'/%3E%3Ccircle cx='50' cy='50' r='8' fill='%23ff2e2e'/%3E%3C/svg%3E" />
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: #02060c;
+      background-image:
+        linear-gradient(rgba(34, 211, 238, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(34, 211, 238, 0.04) 1px, transparent 1px),
+        radial-gradient(circle at 50% 0%, rgba(6, 182, 212, 0.14), transparent 55%);
+      background-size: 28px 28px, 28px 28px, 100% 100%;
+      color: #e2f8ff;
+    }
+    .font-dot {
+      font-family: 'DotGothic16', 'Space Mono', monospace;
+      letter-spacing: 0.06em;
+    }
+    .font-mono-tech {
+      font-family: 'Space Mono', monospace;
+    }
+    .nothing-card {
+      background: rgba(6, 15, 28, 0.86);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(34, 211, 238, 0.25);
+      box-shadow: 0 0 20px rgba(6, 182, 212, 0.08), inset 0 0 12px rgba(34, 211, 238, 0.04);
+      border-radius: 1.15rem;
+    }
+    .nothing-subcard {
+      background: rgba(2, 8, 18, 0.9);
+      border: 1px solid rgba(34, 211, 238, 0.18);
+      border-radius: 0.85rem;
+    }
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); opacity: 0.85; }
+      70% { transform: scale(1.24); opacity: 0; }
+      100% { transform: scale(0.95); opacity: 0; }
+    }
+    @keyframes orb-spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    @keyframes eq-bounce {
+      0%, 100% { transform: scaleY(0.3); }
+      50% { transform: scaleY(1); }
+    }
+    .mic-pulse::before {
+      content: '';
+      position: absolute;
+      inset: -6px;
+      border-radius: 9999px;
+      background: rgba(255, 46, 46, 0.45);
+      animation: pulse-ring 1.2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+    }
+    .jarvis-ring {
+      animation: orb-spin 12s linear infinite;
+    }
+    .jarvis-active {
+      box-shadow: 0 0 24px rgba(255, 46, 46, 0.5);
+      border-color: #ff2e2e !important;
+    }
+    .wave-bar {
+      transform-origin: center;
+      transition: height 0.2s ease;
+    }
+    .wave-active .wave-bar {
+      animation: eq-bounce 0.7s ease-in-out infinite;
+    }
+    .md-content p { margin-bottom: 0.4rem; }
+    .md-content p:last-child { margin-bottom: 0; }
+    .md-content ul, .md-content ol { margin: 0.35rem 0 0.35rem 1.2rem; }
+    .md-content ul { list-style-type: disc; }
+    .md-content ol { list-style-type: decimal; }
+    .md-content pre {
+      background: #050506;
+      border: 1px solid #27272a;
+      border-radius: 0.65rem;
+      padding: 0.65rem;
+      overflow-x: auto;
+      margin: 0.45rem 0;
+      font-size: 0.76rem;
+    }
+    .md-content code {
+      background: #18181b;
+      padding: 0.1rem 0.3rem;
+      border-radius: 0.25rem;
+      font-size: 0.82em;
+    }
+    .md-content pre code { background: transparent; padding: 0; }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 9999px; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- 4-Digit PIN Lock Screen (Nothing Dot-Matrix Style) -->
+  <div id="pinLockScreen" class="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl flex items-center justify-center p-4">
+    <div class="max-w-sm w-full nothing-card p-6 shadow-2xl flex flex-col items-center gap-4 text-center">
+      <div class="relative w-14 h-14 rounded-full bg-zinc-950 border border-zinc-700 flex items-center justify-center">
+        <div class="jarvis-ring absolute inset-1.5 rounded-full border-2 border-dotted border-zinc-300"></div>
+        <div class="w-3 h-3 rounded-full bg-red-500 shadow-[0_0_12px_#ff2e2e]"></div>
+      </div>
+      <div>
+        <h2 class="font-dot text-xl text-white">SAARATHI <span class="text-sm text-zinc-400">(सारथि)</span></h2>
+        <p class="font-mono-tech text-[11px] text-zinc-400 mt-1 uppercase tracking-widest">LOCKED • ENTER 4-DIGIT PIN</p>
+      </div>
+      <input
+        id="pinInput"
+        type="password"
+        inputmode="numeric"
+        maxlength="4"
+        autocomplete="off"
+        class="w-44 text-center tracking-[0.55em] text-2xl font-dot rounded-xl bg-black border border-zinc-700 focus:border-red-500 focus:outline-none py-2.5 px-4 text-white"
+        placeholder="••••"
+      />
+      <p id="pinError" class="hidden text-xs text-red-400 font-mono-tech">INCORRECT PIN. TRY AGAIN.</p>
+      <button id="btnUnlockApp" type="button" class="w-full py-2.5 rounded-full bg-white hover:bg-zinc-200 text-black text-xs font-mono-tech font-bold uppercase tracking-wider transition">
+        Unlock Saarathi
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Compact No-Scroll Shell -->
+  <div class="max-w-5xl w-full mx-auto px-3 py-2.5 flex-1 flex flex-col gap-2.5">
+
+    <!-- 00 Compact Nothing Header -->
+    <header class="nothing-card px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-2.5">
+        <div id="jarvisOrb" class="relative w-9 h-9 rounded-full bg-black border border-zinc-700 flex items-center justify-center transition-all shrink-0">
+          <div class="jarvis-ring absolute inset-1 rounded-full border border-dotted border-zinc-300"></div>
+          <div class="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_12px_#22d3ee]"></div>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-dot text-base sm:text-lg text-white leading-none">SAARATHI <span class="text-xs text-zinc-400">(सारथि)</span></h1>
+            <span id="aiModeBadge" class="font-mono-tech text-[10px] uppercase px-2 py-0.5 rounded-full bg-zinc-900 text-zinc-400 border border-zinc-700">Offline Mode</span>
+          </div>
+          <p id="subtitleText" class="font-mono-tech text-[10px] text-zinc-500 mt-0.5 uppercase">SYS.ONLINE • HUD • VOICE • VISION</p>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-1">
+        <button id="btnToggleChats" type="button" class="px-2.5 py-1 text-[11px] font-mono-tech rounded-full bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 transition">💬 Chats</button>
+        <button id="btnToggleMemory" type="button" class="px-2.5 py-1 text-[11px] font-mono-tech rounded-full bg-zinc-900 hover:bg-zinc-800 text-cyan-300 border border-cyan-500/40 transition">🧠 Memory</button>
+        <button id="btnToggleSkillBar" type="button" class="px-2.5 py-1 text-[11px] font-mono-tech rounded-full bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 transition">🧩 + Feature</button>
+        <button id="btnToggleKeyBar" type="button" class="px-2.5 py-1 text-[11px] font-mono-tech rounded-full bg-zinc-900 hover:bg-zinc-800 text-red-400 border border-red-500/40 transition">🔑 AI Key</button>
+        <button id="btnDownloadApp" type="button" class="px-2.5 py-1 text-[11px] font-mono-tech rounded-full bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 transition">⬇️ Save App</button>
+        <button id="btnPhoneInstall" type="button" class="px-2.5 py-1 text-[11px] font-mono-tech rounded-full bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 transition">📲 Install on Phone</button>
+        <button id="btnLockApp" type="button" class="px-2.5 py-1 text-[11px] font-mono-tech rounded-full bg-zinc-900 hover:bg-zinc-800 text-red-400 border border-zinc-700 transition">🔒 Lock</button>
+
+        <div class="flex items-center bg-black p-0.5 rounded-full border border-zinc-800" role="group" aria-label="Language">
+          <button id="btnLangEn" type="button" class="px-2.5 py-0.5 text-[11px] font-mono-tech rounded-full transition bg-white text-black font-bold">English</button>
+          <button id="btnLangHi" type="button" class="px-2.5 py-0.5 text-[11px] font-mono-tech rounded-full transition text-zinc-400 hover:text-white">हिन्दी (Hindi)</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- 01 Visual Telemetry Bento Strip (Dot-Matrix Status + Live Waveform) -->
+    <div class="grid grid-cols-12 gap-2.5">
+      <div class="col-span-7 sm:col-span-8 nothing-card px-3.5 py-2.5 flex items-center justify-between gap-3">
+        <div class="min-w-0">
+          <div class="font-mono-tech text-[10px] text-zinc-500 uppercase tracking-wider">01 AGENT STATUS</div>
+          <div id="visualStatusBig" class="font-dot text-sm sm:text-base text-white truncate">STANDBY • READY</div>
+        </div>
+        <!-- Dot-Matrix Waveform Visualizer -->
+        <div id="waveVisualizer" class="flex items-center gap-1 h-7 shrink-0">
+          <span class="wave-bar w-1 h-2 bg-zinc-600 rounded-full" style="animation-delay:0.0s"></span>
+          <span class="wave-bar w-1 h-4 bg-zinc-500 rounded-full" style="animation-delay:0.1s"></span>
+          <span class="wave-bar w-1 h-6 bg-red-500 rounded-full" style="animation-delay:0.2s"></span>
+          <span class="wave-bar w-1 h-3 bg-zinc-400 rounded-full" style="animation-delay:0.3s"></span>
+          <span class="wave-bar w-1 h-6 bg-white rounded-full" style="animation-delay:0.15s"></span>
+          <span class="wave-bar w-1 h-5 bg-red-500 rounded-full" style="animation-delay:0.25s"></span>
+          <span class="wave-bar w-1 h-3 bg-zinc-500 rounded-full" style="animation-delay:0.35s"></span>
+          <span class="wave-bar w-1 h-2 bg-zinc-600 rounded-full" style="animation-delay:0.05s"></span>
+        </div>
+      </div>
+
+      <div class="col-span-5 sm:col-span-4 nothing-card px-3.5 py-2.5 flex items-center justify-between gap-2">
+        <div>
+          <div class="font-mono-tech text-[10px] text-zinc-500 uppercase">02 DOCS</div>
+          <div id="docStatsMini" class="font-dot text-sm text-white">0 WORDS</div>
+        </div>
+        <div class="text-right">
+          <div class="font-mono-tech text-[10px] text-zinc-500 uppercase">TOOLS</div>
+          <div id="toolsCountMini" class="font-dot text-sm text-red-400">2 ACTIVE</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Collapsible Drawers (Hidden by default to minimize scrolling) -->
+    <section id="phoneInstallModal" class="hidden nothing-card p-3.5 flex flex-col gap-2">
+      <div class="flex items-center justify-between">
+        <span class="font-mono-tech text-xs text-white uppercase">📲 Install Saarathi on Phone</span>
+        <button id="btnCloseInstallModal" type="button" class="text-xs text-zinc-400 hover:text-white">✕</button>
+      </div>
+      <p class="text-xs text-zinc-400">Host <code>index.html</code> on GitHub Pages or Netlify → Open in Chrome → <strong>Add to Home screen</strong> (or wrap with WebIntoApp for <code>.apk</code>).</p>
+    </section>
+
+    <section id="memoryDrawer" class="hidden nothing-card p-3.5 flex flex-col gap-2.5 border-cyan-500/30">
+      <div class="flex items-center justify-between">
+        <span class="font-mono-tech text-xs text-cyan-300 uppercase">🧠 Self-Learning Memory (What Saarathi Learned About You)</span>
+        <button id="btnCloseMemory" type="button" class="text-xs text-zinc-400 hover:text-white">✕</button>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <input id="memoryInput" type="text" class="flex-1 min-w-[200px] rounded-full bg-black border border-zinc-700 focus:border-cyan-400 focus:outline-none px-3.5 py-1.5 text-xs text-white placeholder-zinc-600" placeholder="Teach Saarathi (e.g. 'Always answer in 3 short points' or 'My name is Vikas')..." />
+        <button id="btnAddMemory" type="button" class="px-3.5 py-1.5 rounded-full bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-mono-tech font-bold transition">+ Teach</button>
+      </div>
+      <div id="memoryList" class="flex flex-wrap gap-1.5"></div>
+    </section>
+
+    <section id="chatsDrawer" class="hidden nothing-card p-3.5 flex flex-col gap-2.5">
+      <div class="flex items-center justify-between">
+        <span class="font-mono-tech text-xs text-white uppercase">💬 Saved Chats</span>
+        <div class="flex items-center gap-2">
+          <button id="btnNewChat" type="button" class="px-3 py-1 rounded-full bg-white text-black text-[11px] font-mono-tech font-bold">+ New Chat</button>
+          <button id="btnCloseChats" type="button" class="text-xs text-zinc-400 hover:text-white">✕</button>
+        </div>
+      </div>
+      <div id="chatSessionsList" class="flex flex-wrap gap-1.5"></div>
+    </section>
+
+    <section id="apiKeyBar" class="nothing-card p-3.5 flex flex-col gap-2.5 border-red-500/30">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <span id="apiKeyLabel" class="font-mono-tech text-[11px] text-zinc-300">🔑 Paste Gemini API Key (stored only on your device)</span>
+        <select id="modelSelect" aria-label="AI Model" class="text-[11px] font-mono-tech bg-black text-zinc-200 border border-zinc-700 rounded-full px-2.5 py-1 focus:outline-none">
+          <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+          <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+          <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite</option>
+          <option value="gemini-3.8-flash">gemini-3.8-flash</option>
+        </select>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <input id="apiKeyInput" type="password" class="flex-1 min-w-[180px] rounded-full bg-black border border-zinc-700 focus:border-red-500 focus:outline-none px-3.5 py-1.5 text-xs text-white placeholder-zinc-600" placeholder="Paste AIza... key here" />
+        <button id="btnSaveKey" type="button" class="px-3.5 py-1.5 rounded-full bg-white hover:bg-zinc-200 text-black text-xs font-mono-tech font-bold transition">Save &amp; Test</button>
+        <button id="btnClearKey" type="button" class="px-3 py-1.5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-mono-tech border border-zinc-700 transition">Clear</button>
+      </div>
+    </section>
+
+    <section id="customSkillBar" class="hidden nothing-card p-3.5 flex flex-col gap-2.5">
+      <div class="flex items-center justify-between">
+        <span id="skillBuilderTitle" class="font-mono-tech text-xs text-white uppercase">⚡ Self-Builder: Add Feature by Command</span>
+        <button id="btnCloseSkillBar" type="button" class="text-xs text-zinc-400 hover:text-white">✕</button>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <input id="autoBuildInput" type="text" class="flex-1 min-w-[200px] rounded-full bg-black border border-zinc-700 focus:border-red-500 focus:outline-none px-3.5 py-1.5 text-xs text-white placeholder-zinc-600" placeholder="e.g. 'Add Pomodoro timer' or 'Marathi translator'..." />
+        <button id="btnAutoBuild" type="button" class="px-3.5 py-1.5 rounded-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-mono-tech font-bold transition">⚡ Auto-Build Feature</button>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-4 gap-1.5">
+        <input id="skillNameInput" type="text" class="rounded-xl bg-black border border-zinc-800 px-3 py-1.5 text-xs text-white placeholder-zinc-600" placeholder="Button Name" />
+        <input id="skillTriggerInput" type="text" class="rounded-xl bg-black border border-zinc-800 px-3 py-1.5 text-xs text-white placeholder-zinc-600" placeholder="Voice Trigger" />
+        <input id="skillPromptInput" type="text" class="rounded-xl bg-black border border-zinc-800 px-3 py-1.5 text-xs text-white placeholder-zinc-600" placeholder="AI Instruction" />
+        <button id="btnAddSkill" type="button" class="px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white border border-zinc-700 text-xs font-mono-tech">+ Add Feature</button>
+      </div>
+      <div id="savedSkillsList" class="flex flex-wrap gap-1.5"></div>
+    </section>
+
+    <!-- Status Toast -->
+    <div id="statusBanner" class="hidden rounded-full px-4 py-1.5 text-xs font-mono-tech border flex items-center justify-between gap-2">
+      <span id="statusMessage"></span>
+      <button id="btnCloseStatus" type="button" class="text-xs opacity-70 hover:opacity-100">✕</button>
+    </div>
+
+    <!-- Mobile Zero-Scroll Bento Tab Switcher (Desktop shows both side-by-side) -->
+    <div class="grid grid-cols-3 gap-1.5 lg:hidden bg-zinc-950 p-1 rounded-full border border-zinc-800">
+      <button id="tabBtnChat" type="button" class="py-1.5 rounded-full text-xs font-mono-tech font-bold bg-white text-black transition">01 CHAT</button>
+      <button id="tabBtnDocs" type="button" class="py-1.5 rounded-full text-xs font-mono-tech text-zinc-400 hover:text-white transition">02 DOCS &amp; MEDIA</button>
+      <button id="tabBtnTools" type="button" class="py-1.5 rounded-full text-xs font-mono-tech text-zinc-400 hover:text-white transition">03 TOOLS</button>
+    </div>
+
+    <!-- Main Workspace (No-Scroll Tabbed on Mobile, 2-Column Bento on Desktop) -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 flex-1 min-h-0">
+
+      <!-- 02 Docs & Media Panel -->
+      <section id="panelDocs" class="hidden lg:flex lg:col-span-5 nothing-card p-3.5 flex-col gap-2.5">
+        <div class="flex items-center justify-between gap-2">
+          <h2 id="docHeading" class="font-mono-tech text-xs text-zinc-300 uppercase flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-red-500"></span>
+            <span id="docTitleLabel">02 Upload PDF, Photo, Video</span>
+          </h2>
+          <button id="btnLoadSample" type="button" class="text-[11px] font-mono-tech px-2.5 py-1 rounded-full bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-700 transition">Load Sample Doc</button>
+        </div>
+
+        <div class="grid grid-cols-3 gap-1.5">
+          <label for="fileInput" class="cursor-pointer text-center text-xs font-mono-tech py-2 rounded-xl bg-black hover:bg-zinc-900 text-white border border-zinc-700 transition">📄 PDF/.txt</label>
+          <input id="fileInput" type="file" accept=".pdf,.txt,.md,.csv" class="hidden" />
+          <label for="photoInput" class="cursor-pointer text-center text-xs font-mono-tech py-2 rounded-xl bg-black hover:bg-zinc-900 text-white border border-zinc-700 transition">🖼️ Photo</label>
+          <input id="photoInput" type="file" accept="image/*" class="hidden" />
+          <label for="videoInput" class="cursor-pointer text-center text-xs font-mono-tech py-2 rounded-xl bg-black hover:bg-zinc-900 text-white border border-zinc-700 transition">🎬 Video</label>
+          <input id="videoInput" type="file" accept="video/*" class="hidden" />
+        </div>
+
+        <div id="mediaPreviewBox" class="hidden nothing-subcard p-2.5 flex flex-col gap-2">
+          <div class="flex items-center justify-between gap-2 text-[11px] font-mono-tech text-zinc-400">
+            <span id="mediaMetaLabel" class="truncate text-zinc-200">Media Preview</span>
+            <div class="flex items-center gap-2 shrink-0">
+              <button id="btnAnalyzeMedia" type="button" class="text-red-400 hover:text-red-300 font-bold">Analyze with AI</button>
+              <button id="btnClearMedia" type="button" class="text-zinc-500 hover:text-white">Clear</button>
+            </div>
+          </div>
+          <img id="photoPreview" alt="Uploaded photo preview" class="hidden max-w-full max-h-36 object-contain rounded-lg mx-auto" />
+          <video id="videoPreview" controls class="hidden w-full max-h-36 rounded-lg bg-black"></video>
+        </div>
+
+        <textarea id="docInput" rows="4" class="w-full flex-1 rounded-xl bg-black border border-zinc-800 focus:border-zinc-500 focus:outline-none p-3 text-xs sm:text-sm text-zinc-200 placeholder-zinc-600 leading-relaxed resize-none" placeholder="Paste text here, or upload a PDF / .txt file above..."></textarea>
+
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <span id="docStats" class="font-mono-tech text-[11px] text-zinc-500">0 words</span>
+          <div class="flex flex-wrap items-center gap-1.5">
+            <button id="btnReadDoc" type="button" class="px-3 py-1.5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white border border-zinc-700 text-xs font-mono-tech transition">🔊 <span id="btnReadDocText">Read Document</span></button>
+            <button id="btnExplainDoc" type="button" class="px-3 py-1.5 rounded-full bg-white hover:bg-zinc-200 text-black text-xs font-mono-tech font-bold transition">💡 <span id="btnExplainDocText">Explain Simply</span></button>
+            <button id="btnStopSpeech" type="button" class="px-2.5 py-1.5 rounded-full bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/40 text-xs font-mono-tech transition">Stop</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 03 Chat & Voice Console Panel -->
+      <section id="panelChat" class="flex lg:col-span-7 nothing-card p-3.5 flex-col gap-2.5 min-h-[380px]">
+        <div class="flex flex-wrap items-center justify-between gap-1.5">
+          <h2 id="chatHeading" class="font-mono-tech text-xs text-zinc-300 uppercase flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-red-500"></span>
+            <span id="chatTitleLabel">Saarathi Console</span>
+          </h2>
+          <div class="flex flex-wrap items-center gap-1">
+            <select id="personaSelect" aria-label="Assistant Persona" class="text-[11px] font-mono-tech bg-black text-zinc-200 border border-zinc-700 rounded-full px-2.5 py-1 focus:outline-none">
+              <option value="assistant">🤖 Assistant</option>
+              <option value="teacher">👨‍🏫 Teacher</option>
+              <option value="coder">💻 Coder</option>
+              <option value="summarizer">📝 Summarizer</option>
+              <option value="writer">✍️ Writer</option>
+            </select>
+            <button id="btnWebSearch" type="button" class="text-[11px] font-mono-tech px-2.5 py-1 rounded-full bg-black text-zinc-300 border border-zinc-700 transition">🌐 Web: OFF</button>
+            <button id="btnHandsFree" type="button" class="text-[11px] font-mono-tech px-2.5 py-1 rounded-full bg-black text-zinc-300 border border-zinc-700 transition">🎙️ Hands-Free: OFF</button>
+            <button id="btnExportNotes" type="button" class="text-[11px] font-mono-tech px-2.5 py-1 rounded-full bg-black text-zinc-300 border border-zinc-700 transition">💾 Save Notes</button>
+            <span id="voiceStateBadge" class="text-[11px] font-mono-tech px-2.5 py-1 rounded-full bg-zinc-900 text-zinc-400 border border-zinc-700">Ready</span>
+          </div>
+        </div>
+
+        <!-- Compact Quick Chips -->
+        <div id="quickCmdBar" class="flex flex-wrap gap-1.5">
+          <button type="button" data-cmd="explain" class="quick-cmd text-[11px] font-mono-tech px-2.5 py-1 rounded-full bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 transition">"Explain"</button>
+          <button type="button" data-cmd="read" class="quick-cmd text-[11px] font-mono-tech px-2.5 py-1 rounded-full bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 transition">"Read"</button>
+          <button type="button" data-cmd="media" class="quick-cmd text-[11px] font-mono-tech px-2.5 py-1 rounded-full bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 transition">"Analyze Media"</button>
+          <button type="button" data-cmd="genphoto" class="quick-cmd text-[11px] font-mono-tech px-2.5 py-1 rounded-full bg-zinc-900 hover:bg-zinc-800 text-cyan-300 border border-cyan-500/40 transition">"🎨 Generate Photo"</button>
+          <div id="customSkillChips" class="contents"></div>
+        </div>
+
+        <!-- Fixed-Height Conversation Feed (No Page Scrolling!) -->
+        <div id="chatFeed" class="flex-1 min-h-[210px] max-h-[300px] overflow-y-auto flex flex-col gap-2.5 pr-1"></div>
+
+        <!-- Bottom Floating Voice & Text Bar -->
+        <div class="flex items-center gap-2 p-1 rounded-full bg-black border border-zinc-700">
+          <button id="btnMic" type="button" title="Speak to Saarathi" class="relative w-10 h-10 shrink-0 rounded-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 flex items-center justify-center transition shadow-lg">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="23"/>
+              <line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
+          </button>
+          <input id="textQuery" type="text" class="flex-1 bg-transparent focus:outline-none px-2 py-1.5 text-sm text-white placeholder-zinc-600" placeholder="Ask anything OR say 'Add feature: Pomodoro timer'..." />
+          <button id="btnSend" type="button" class="px-4 py-2 rounded-full bg-white hover:bg-zinc-200 text-black text-xs font-mono-tech font-bold transition shrink-0">Send</button>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- 03 Custom Built Mini-Tools Stage -->
+    <section id="customToolsStage" class="hidden nothing-card p-3.5 flex flex-col gap-2.5">
+      <div class="flex items-center justify-between">
+        <h2 class="font-mono-tech text-xs text-zinc-300 uppercase">🛠️ 03 My Custom Built Tools</h2>
+        <span class="font-mono-tech text-[10px] text-zinc-500">SANDBOXED WIDGETS</span>
+      </div>
+      <div id="customWidgetsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-2.5"></div>
+    </section>
+
+  </div>
+
+  <script>
+    if (window.pdfjsLib) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+
+    const defaultSkills = [
+      { id: 'bullet-summary', name: '5 Bullet Points', trigger: 'bullet', prompt: 'Summarize the key points in 5 short bullet points.' },
+      { id: 'quiz-me', name: 'Quiz Me', trigger: 'quiz', prompt: 'Create 3 quick quiz questions based on this content.' }
+    ];
+
+    const personaInstructions = {
+      assistant: 'Be a helpful, clear, and friendly personal assistant.',
+      teacher: 'Act like a patient teacher. Explain concepts step-by-step with simple examples for a beginner.',
+      coder: 'Act like an expert software engineer. Provide clean, well-commented code blocks and clear technical explanations.',
+      summarizer: 'Be concise. Always respond with crisp bullet points and key takeaways.',
+      writer: 'Act like a skilled creative writer. Write engaging, polished prose, emails, or scripts.'
+    };
+
+    const state = {
+      lang: 'en',
+      isListening: false,
+      isSpeaking: false,
+      isThinking: false,
+      handsFree: false,
+      webSearch: false,
+      persona: 'assistant',
+      apiKey: '',
+      model: 'gemini-2.5-flash',
+      sessions: [],
+      activeSessionId: null,
+      customSkills: defaultSkills,
+      customWidgets: [],
+      memories: [],
+      mediaInfo: null,
+      lastUserPrompt: ''
+    };
+
+    try {
+      state.apiKey = localStorage.getItem('jarvis_gemini_key') || '';
+      state.model = localStorage.getItem('jarvis_gemini_model') || 'gemini-2.5-flash';
+      const savedSkills = localStorage.getItem('saarathi_custom_skills');
+      if (savedSkills) state.customSkills = JSON.parse(savedSkills);
+      const savedWidgets = localStorage.getItem('saarathi_custom_widgets');
+      if (savedWidgets) state.customWidgets = JSON.parse(savedWidgets);
+      const savedMemories = localStorage.getItem('saarathi_memories');
+      if (savedMemories) state.memories = JSON.parse(savedMemories);
+      const savedSessions = localStorage.getItem('saarathi_sessions');
+      if (savedSessions) state.sessions = JSON.parse(savedSessions);
+    } catch (_) {}
+
+    const i18n = {
+      en: {
+        subtitle: 'SYS.ONLINE • HUD • VOICE • VISION',
+        apiKeyLabel: '🔑 Paste Gemini API Key (stored only on your device)',
+        docTitle: '02 Upload PDF, Photo, Video',
+        loadSample: 'Load Sample Doc',
+        placeholderDoc: 'Paste text here, or upload a PDF / .txt file above...',
+        readDoc: 'Read Document',
+        explainDoc: 'Explain Simply',
+        stop: 'Stop',
+        chatTitle: 'Saarathi Console',
+        ready: 'Ready',
+        listening: 'Listening...',
+        speaking: 'Speaking...',
+        thinking: 'Thinking...',
+        placeholderQuery: "Ask anything OR say 'Add feature: Pomodoro timer'...",
+        send: 'Send',
+        welcome: "Namaste! I'm Saarathi. Switch tabs above for Docs & Tools with zero scrolling, or tap the red Mic to speak.",
+        sampleDoc: "Project Saarathi Summary:\n• Nothing-style dot-matrix bilingual AI assistant.\n• Minimal scrolling with tabbed bento widgets.\n• Supports PDF/Photo/Video, Live Web Search, and Self-Building Tools.",
+        noDoc: 'Please upload a PDF, text, photo, or video first—or ask me any general question!',
+        micUnsupported: 'Voice input is not supported in this browser. You can type your command below!',
+        micError: 'Microphone access failed. Please allow mic permission or type your command below.',
+        pdfLoading: 'Reading PDF pages...',
+        pdfDone: (name, pages) => `Loaded PDF "${name}" (${pages} pages).`
+      },
+      hi: {
+        subtitle: 'SYS.ONLINE • HUD • VOICE • VISION',
+        apiKeyLabel: '🔑 AI Brain के लिए अपनी Gemini API Key डालें (सिर्फ आपके phone में सेव रहेगी)',
+        docTitle: '02 PDF, Photo, Video अपलोड करें',
+        loadSample: 'Sample Doc डालें',
+        placeholderDoc: 'यहाँ text paste करें, या ऊपर से PDF / .txt file चुनें...',
+        readDoc: 'पढ़ें',
+        explainDoc: 'समझाएं',
+        stop: 'रोकें',
+        chatTitle: 'Saarathi Console',
+        ready: 'तैयार',
+        listening: 'सुन रहा हूँ...',
+        speaking: 'बोल रहा हूँ...',
+        thinking: 'सोच रहा हूँ...',
+        placeholderQuery: "कुछ भी पूछें या बोलें 'Add feature: Pomodoro timer'...",
+        send: 'भेजें',
+        welcome: 'नमस्ते! मैं सारथि (Saarathi) हूँ। बिना ज्यादा scroll किए ऊपर से Chat, Docs या Tools चुनें, और लाल Mic दबाकर बात करें!',
+        sampleDoc: "Project Saarathi सारांश:\n• Nothing OS जैसा dot-matrix bilingual AI assistant।\n• कम scrolling वाला bento widget layout।\n• PDF, Photo, Video, Live Web Search और Self-Building Tools के साथ।",
+        noDoc: 'कृपया पहले कोई PDF, text, photo या video upload करें—या कोई भी सामान्य सवाल पूछें!',
+        micUnsupported: 'इस browser में voice input उपलब्ध नहीं है। आप नीचे लिखकर भी पूछ सकते हैं!',
+        micError: 'Microphone चालू नहीं हो पाया। कृपया mic permission दें या नीचे लिखकर पूछें।',
+        pdfLoading: 'PDF पढ़ रहा हूँ...',
+        pdfDone: (name, pages) => `PDF "${name}" (${pages} पेज) सफलतापूर्वक लोड हो गई!`
+      }
+    };
+
+    const el = {
+      jarvisOrb: document.getElementById('jarvisOrb'),
+      visualStatusBig: document.getElementById('visualStatusBig'),
+      waveVisualizer: document.getElementById('waveVisualizer'),
+      docStatsMini: document.getElementById('docStatsMini'),
+      toolsCountMini: document.getElementById('toolsCountMini'),
+      aiModeBadge: document.getElementById('aiModeBadge'),
+      btnToggleMemory: document.getElementById('btnToggleMemory'),
+      memoryDrawer: document.getElementById('memoryDrawer'),
+      btnCloseMemory: document.getElementById('btnCloseMemory'),
+      memoryInput: document.getElementById('memoryInput'),
+      btnAddMemory: document.getElementById('btnAddMemory'),
+      memoryList: document.getElementById('memoryList'),
+      btnToggleChats: document.getElementById('btnToggleChats'),
+      chatsDrawer: document.getElementById('chatsDrawer'),
+      btnNewChat: document.getElementById('btnNewChat'),
+      btnCloseChats: document.getElementById('btnCloseChats'),
+      chatSessionsList: document.getElementById('chatSessionsList'),
+      btnToggleSkillBar: document.getElementById('btnToggleSkillBar'),
+      customSkillBar: document.getElementById('customSkillBar'),
+      btnCloseSkillBar: document.getElementById('btnCloseSkillBar'),
+      autoBuildInput: document.getElementById('autoBuildInput'),
+      btnAutoBuild: document.getElementById('btnAutoBuild'),
+      skillNameInput: document.getElementById('skillNameInput'),
+      skillTriggerInput: document.getElementById('skillTriggerInput'),
+      skillPromptInput: document.getElementById('skillPromptInput'),
+      btnAddSkill: document.getElementById('btnAddSkill'),
+      savedSkillsList: document.getElementById('savedSkillsList'),
+      customSkillChips: document.getElementById('customSkillChips'),
+      customToolsStage: document.getElementById('customToolsStage'),
+      customWidgetsGrid: document.getElementById('customWidgetsGrid'),
+      btnDownloadApp: document.getElementById('btnDownloadApp'),
+      btnToggleKeyBar: document.getElementById('btnToggleKeyBar'),
+      apiKeyBar: document.getElementById('apiKeyBar'),
+      apiKeyLabel: document.getElementById('apiKeyLabel'),
+      apiKeyInput: document.getElementById('apiKeyInput'),
+      modelSelect: document.getElementById('modelSelect'),
+      btnSaveKey: document.getElementById('btnSaveKey'),
+      btnClearKey: document.getElementById('btnClearKey'),
+      btnLangEn: document.getElementById('btnLangEn'),
+      btnLangHi: document.getElementById('btnLangHi'),
+      subtitleText: document.getElementById('subtitleText'),
+      docTitleLabel: document.getElementById('docTitleLabel'),
+      btnLoadSample: document.getElementById('btnLoadSample'),
+      fileInput: document.getElementById('fileInput'),
+      photoInput: document.getElementById('photoInput'),
+      videoInput: document.getElementById('videoInput'),
+      mediaPreviewBox: document.getElementById('mediaPreviewBox'),
+      mediaMetaLabel: document.getElementById('mediaMetaLabel'),
+      btnAnalyzeMedia: document.getElementById('btnAnalyzeMedia'),
+      btnClearMedia: document.getElementById('btnClearMedia'),
+      photoPreview: document.getElementById('photoPreview'),
+      videoPreview: document.getElementById('videoPreview'),
+      docInput: document.getElementById('docInput'),
+      docStats: document.getElementById('docStats'),
+      btnReadDoc: document.getElementById('btnReadDoc'),
+      btnReadDocText: document.getElementById('btnReadDocText'),
+      btnExplainDoc: document.getElementById('btnExplainDoc'),
+      btnExplainDocText: document.getElementById('btnExplainDocText'),
+      btnStopSpeech: document.getElementById('btnStopSpeech'),
+      chatTitleLabel: document.getElementById('chatTitleLabel'),
+      personaSelect: document.getElementById('personaSelect'),
+      btnWebSearch: document.getElementById('btnWebSearch'),
+      btnHandsFree: document.getElementById('btnHandsFree'),
+      btnExportNotes: document.getElementById('btnExportNotes'),
+      voiceStateBadge: document.getElementById('voiceStateBadge'),
+      chatFeed: document.getElementById('chatFeed'),
+      btnMic: document.getElementById('btnMic'),
+      textQuery: document.getElementById('textQuery'),
+      btnSend: document.getElementById('btnSend'),
+      statusBanner: document.getElementById('statusBanner'),
+      statusMessage: document.getElementById('statusMessage'),
+      btnCloseStatus: document.getElementById('btnCloseStatus'),
+      tabBtnChat: document.getElementById('tabBtnChat'),
+      tabBtnDocs: document.getElementById('tabBtnDocs'),
+      tabBtnTools: document.getElementById('tabBtnTools'),
+      panelChat: document.getElementById('panelChat'),
+      panelDocs: document.getElementById('panelDocs')
+    };
+
+    // --- Mobile Zero-Scroll Tab Switcher ---
+    function switchMobileTab(tab) {
+      el.tabBtnChat.className = 'py-1.5 rounded-full text-xs font-mono-tech transition ' + (tab === 'chat' ? 'bg-white text-black font-bold' : 'text-zinc-400 hover:text-white');
+      el.tabBtnDocs.className = 'py-1.5 rounded-full text-xs font-mono-tech transition ' + (tab === 'docs' ? 'bg-white text-black font-bold' : 'text-zinc-400 hover:text-white');
+      el.tabBtnTools.className = 'py-1.5 rounded-full text-xs font-mono-tech transition ' + (tab === 'tools' ? 'bg-white text-black font-bold' : 'text-zinc-400 hover:text-white');
+
+      if (tab === 'chat') {
+        el.panelChat.classList.remove('hidden'); el.panelChat.classList.add('flex');
+        el.panelDocs.classList.add('hidden'); el.panelDocs.classList.remove('flex');
+      } else if (tab === 'docs') {
+        el.panelDocs.classList.remove('hidden'); el.panelDocs.classList.add('flex');
+        el.panelChat.classList.add('hidden'); el.panelChat.classList.remove('flex');
+      } else if (tab === 'tools') {
+        el.customSkillBar.classList.remove('hidden');
+        if (state.customWidgets.length > 0) el.customToolsStage.classList.remove('hidden');
+        el.panelChat.classList.remove('hidden'); el.panelChat.classList.add('flex');
+        el.panelDocs.classList.add('hidden'); el.panelDocs.classList.remove('flex');
+      }
+    }
+
+    el.tabBtnChat.addEventListener('click', () => switchMobileTab('chat'));
+    el.tabBtnDocs.addEventListener('click', () => switchMobileTab('docs'));
+    el.tabBtnTools.addEventListener('click', () => switchMobileTab('tools'));
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function renderMarkdown(text) {
+      const codeBlocks = [];
+      let processed = text.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+        const idx = codeBlocks.length;
+        codeBlocks.push({ lang: lang || 'code', code: code.trimEnd() });
+        return `@@CODEBLOCK_${idx}@@`;
+      });
+      processed = escapeHtml(processed);
+      processed = processed.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      processed = processed.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+      const lines = processed.split('\n');
+      let html = '';
+      let inList = false;
+      for (const line of lines) {
+        const bulletMatch = line.match(/^\s*[•\-\*]\s+(.*)$/);
+        if (bulletMatch) {
+          if (!inList) { html += '<ul>'; inList = true; }
+          html += `<li>${bulletMatch[1]}</li>`;
+        } else {
+          if (inList) { html += '</ul>'; inList = false; }
+          if (line.trim()) html += `<p>${line}</p>`;
+        }
+      }
+      if (inList) html += '</ul>';
+      html = html.replace(/@@CODEBLOCK_(\d+)@@/g, (_, idx) => `<pre><code>${escapeHtml(codeBlocks[Number(idx)].code)}</code></pre>`);
+      return html || `<p>${escapeHtml(text)}</p>`;
+    }
+
+    function saveWidgetsToStorage() {
+      try { localStorage.setItem('saarathi_custom_widgets', JSON.stringify(state.customWidgets)); } catch (_) {}
+    }
+
+    function updateToolsCount() {
+      const total = state.customSkills.length + state.customWidgets.length;
+      el.toolsCountMini.textContent = `${total} ACTIVE`;
+    }
+
+    function renderCustomWidgets() {
+      el.customWidgetsGrid.innerHTML = '';
+      if (state.customWidgets.length === 0) {
+        el.customToolsStage.classList.add('hidden');
+        updateToolsCount();
+        return;
+      }
+      el.customToolsStage.classList.remove('hidden');
+      state.customWidgets.forEach(w => {
+        const card = document.createElement('div');
+        card.className = 'nothing-subcard p-3 flex flex-col gap-2';
+        const header = document.createElement('div');
+        header.className = 'flex items-center justify-between gap-2';
+        const title = document.createElement('span');
+        title.className = 'font-mono-tech text-xs font-bold text-white';
+        title.textContent = `🛠️ ${w.title}`;
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'text-xs font-mono-tech text-red-400 hover:text-red-300';
+        delBtn.textContent = 'Remove';
+        delBtn.addEventListener('click', () => {
+          state.customWidgets = state.customWidgets.filter(item => item.id !== w.id);
+          saveWidgetsToStorage();
+          renderCustomWidgets();
+        });
+        header.appendChild(title);
+        header.appendChild(delBtn);
+        card.appendChild(header);
+
+        const iframe = document.createElement('iframe');
+        iframe.setAttribute('sandbox', 'allow-scripts');
+        iframe.className = 'w-full h-40 rounded-lg bg-black border border-zinc-800';
+        iframe.srcdoc = w.html;
+        card.appendChild(iframe);
+        el.customWidgetsGrid.appendChild(card);
+      });
+      updateToolsCount();
+    }
+
+    function getOfflineWidgetTemplate(commandText) {
+      const lower = commandText.toLowerCase();
+      if (/(timer|pomodoro|stopwatch|घड़ी)/i.test(lower)) {
+        return {
+          mode: 'widget',
+          title: 'Pomodoro Timer',
+          html: `<!DOCTYPE html><html><body style="margin:0;padding:12px;font-family:monospace;background:#050506;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;height:130px;gap:10px;">
+            <div id="t" style="font-size:32px;font-weight:700;color:#ff2e2e;">25:00</div>
+            <div style="display:flex;gap:8px;">
+              <button onclick="start()" style="padding:6px 14px;border-radius:99px;border:none;background:#fff;color:#000;font-weight:700;cursor:pointer;">START</button>
+              <button onclick="reset()" style="padding:6px 14px;border-radius:99px;border:1px solid #3f3f46;background:#18181b;color:#fff;cursor:pointer;">RESET</button>
+            </div>
+            <script>let s=1500,iv;function show(){document.getElementById('t').textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}function start(){if(iv)return;iv=setInterval(()=>{if(s>0){s--;show();}else{clearInterval(iv);iv=null;}},1000);}function reset(){clearInterval(iv);iv=null;s=1500;show();}<\/script>
+          </body></html>`
+        };
+      }
+      if (/(calc|calculator|math|hisab|जोड़)/i.test(lower)) {
+        return {
+          mode: 'widget',
+          title: 'Quick Calculator',
+          html: `<!DOCTYPE html><html><body style="margin:0;padding:12px;font-family:monospace;background:#050506;color:#fff;display:flex;flex-direction:column;gap:8px;">
+            <input id="e" placeholder="e.g. 250 * 12" style="padding:8px;border-radius:10px;border:1px solid #3f3f46;background:#111113;color:#fff;font-size:14px;"/>
+            <button onclick="calc()" style="padding:7px;border-radius:99px;border:none;background:#fff;color:#000;font-weight:700;cursor:pointer;">CALCULATE</button>
+            <div id="r" style="font-size:18px;font-weight:700;color:#ff2e2e;text-align:center;">= 0</div>
+            <script>function calc(){try{const v=Function('"use strict";return ('+document.getElementById('e').value+')')();document.getElementById('r').textContent='= '+v;}catch(err){document.getElementById('r').textContent='Invalid';}}<\/script>
+          </body></html>`
+        };
+      }
+      return null;
+    }
+
+    async function autoBuildFeature(commandText) {
+      const cmd = commandText.trim();
+      if (!cmd) return;
+
+      if (!state.apiKey) {
+        const tpl = getOfflineWidgetTemplate(cmd);
+        if (tpl) {
+          state.customWidgets.push({ id: 'w-' + Date.now(), title: tpl.title, html: tpl.html });
+          saveWidgetsToStorage();
+          renderCustomWidgets();
+          const msg = state.lang === 'hi' ? `नया tool "${tpl.title}" बना दिया गया!` : `Built new tool "${tpl.title}"!`;
+          addMessage('assistant', msg);
+          speak(msg);
+          return;
+        }
+        const cleanName = cmd.replace(/^(add|create|make|bana|jodo|feature|naya)\s*/i, '').slice(0, 20) || 'Custom Skill';
+        const trigger = cleanName.split(/\s+/)[0].toLowerCase();
+        state.customSkills.push({ id: 'skill-' + Date.now(), name: cleanName, trigger, prompt: cmd });
+        saveSkillsToStorage();
+        renderMemories();
+    renderCustomSkills();
+        const msg = state.lang === 'hi' ? `नया command "${cleanName}" जोड़ दिया गया!` : `Added quick command "${cleanName}"!`;
+        addMessage('assistant', msg);
+        speak(msg);
+        return;
+      }
+
+      state.isThinking = true;
+      updateBadge();
+      showStatus(state.lang === 'hi' ? 'Saarathi नया feature बना रहा है...' : 'Building your new feature...');
+
+      const builderPrompt = `You are a self-building feature generator inside Saarathi app.
+The user wants to add this feature: "${cmd}".
+Decide if this is:
+1) An interactive UI mini-tool/widget (like timer, calculator, todo list, unit converter, expense tracker, flashcard, habit tracker) -> return JSON: {"mode":"widget","title":"Short Title","html":"<!DOCTYPE html><html>...compact matte-black Nothing-OS themed self-contained HTML+CSS+JS fitting inside 155px height...</html>"}
+2) An AI text/voice skill -> return JSON: {"mode":"skill","name":"Short Button Name","trigger":"single_keyword","prompt":"Detailed instruction for AI"}
+
+Return ONLY valid JSON with no markdown fences.`;
+
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(state.model)}:generateContent?key=${encodeURIComponent(state.apiKey)}`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: builderPrompt }] }] })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+
+        let raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim();
+        const parsed = JSON.parse(raw);
+
+        if (parsed.mode === 'widget' && parsed.html) {
+          state.customWidgets.push({ id: 'w-' + Date.now(), title: parsed.title || 'Custom Tool', html: parsed.html });
+          saveWidgetsToStorage();
+          renderCustomWidgets();
+          const msg = state.lang === 'hi' ? `नया tool "${parsed.title}" तैयार है!` : `Built "${parsed.title}" tool inside Saarathi!`;
+          showStatus(msg);
+          addMessage('assistant', msg);
+          speak(msg);
+        } else {
+          const name = parsed.name || 'Custom Feature';
+          const trigger = parsed.trigger || name.toLowerCase().split(/\s+/)[0];
+          const prompt = parsed.prompt || cmd;
+          state.customSkills.push({ id: 'skill-' + Date.now(), name, trigger, prompt });
+          saveSkillsToStorage();
+          renderCustomSkills();
+          const msg = state.lang === 'hi' ? `नया feature "${name}" जोड़ दिया गया!` : `Added feature "${name}" (voice: "${trigger}")!`;
+          showStatus(msg);
+          addMessage('assistant', msg);
+          speak(msg);
+        }
+      } catch (err) {
+        const fallbackMsg = `Auto-build error: ${err.message}`;
+        showStatus(fallbackMsg, 'error');
+        addMessage('assistant', fallbackMsg);
+      } finally {
+        state.isThinking = false;
+        updateBadge();
+      }
+    }
+
+    // --- Self-Learning Memory System ---
+    function saveMemoriesToStorage() {
+      try { localStorage.setItem('saarathi_memories', JSON.stringify(state.memories.slice(-30))); } catch (_) {}
+    }
+
+    function learnFact(fact) {
+      const clean = fact.trim();
+      if (!clean) return;
+      if (state.memories.some(m => m.text.toLowerCase() === clean.toLowerCase())) return;
+      state.memories.push({ id: 'mem-' + Date.now(), text: clean });
+      saveMemoriesToStorage();
+      renderMemories();
+      showStatus(state.lang === 'hi' ? `🧠 सीख लिया: "${clean}"` : `🧠 Learned: "${clean}"`);
+    }
+
+    function renderMemories() {
+      el.memoryList.innerHTML = '';
+      if (state.memories.length === 0) {
+        const empty = document.createElement('span');
+        empty.className = 'font-mono-tech text-[11px] text-zinc-500';
+        empty.textContent = state.lang === 'hi'
+          ? 'अभी कोई memory नहीं है। "Remember..." या "Yaad rakhna..." बोलकर सिखाएं!'
+          : 'No learned memories yet. Say "Remember..." or teach Saarathi above!';
+        el.memoryList.appendChild(empty);
+        return;
+      }
+      state.memories.forEach(m => {
+        const tag = document.createElement('span');
+        tag.className = 'inline-flex items-center gap-1.5 text-[11px] font-mono-tech px-2.5 py-1 rounded-full bg-black text-cyan-200 border border-cyan-500/30';
+        tag.textContent = `🧠 ${m.text}`;
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'text-red-400 font-bold ml-1';
+        del.textContent = '×';
+        del.addEventListener('click', () => {
+          state.memories = state.memories.filter(item => item.id !== m.id);
+          saveMemoriesToStorage();
+          renderMemories();
+        });
+        tag.appendChild(del);
+        el.memoryList.appendChild(tag);
+      });
+    }
+
+    function saveSessions() {
+      try { localStorage.setItem('saarathi_sessions', JSON.stringify(state.sessions.slice(0, 15))); } catch (_) {}
+    }
+
+    function getActiveSession() {
+      return state.sessions.find(s => s.id === state.activeSessionId);
+    }
+
+    function createNewSession(initialWelcome = true) {
+      const id = 'chat-' + Date.now();
+      const session = {
+        id,
+        title: state.lang === 'hi' ? 'नयी बातचीत' : 'New Chat',
+        messages: initialWelcome ? [{ sender: 'assistant', text: i18n[state.lang].welcome, sources: [] }] : []
+      };
+      state.sessions.unshift(session);
+      state.activeSessionId = id;
+      saveSessions();
+      renderSessionsList();
+      renderChatFeed();
+    }
+
+    function renderSessionsList() {
+      el.chatSessionsList.innerHTML = '';
+      state.sessions.forEach(s => {
+        const wrap = document.createElement('div');
+        const active = s.id === state.activeSessionId;
+        wrap.className =
+          'inline-flex items-center gap-1.5 text-xs font-mono-tech px-3 py-1 rounded-full border cursor-pointer transition ' +
+          (active ? 'bg-white text-black border-white font-bold' : 'bg-black border-zinc-700 text-zinc-300 hover:bg-zinc-900');
+
+        const titleSpan = document.createElement('span');
+        titleSpan.textContent = s.title;
+        titleSpan.addEventListener('click', () => {
+          state.activeSessionId = s.id;
+          renderSessionsList();
+          renderChatFeed();
+        });
+        wrap.appendChild(titleSpan);
+
+        if (state.sessions.length > 1) {
+          const del = document.createElement('button');
+          del.type = 'button';
+          del.className = 'text-red-500 font-bold ml-1';
+          del.textContent = '×';
+          del.addEventListener('click', (e) => {
+            e.stopPropagation();
+            state.sessions = state.sessions.filter(item => item.id !== s.id);
+            if (state.activeSessionId === s.id) state.activeSessionId = state.sessions[0].id;
+            saveSessions();
+            renderSessionsList();
+            renderChatFeed();
+          });
+          wrap.appendChild(del);
+        }
+        el.chatSessionsList.appendChild(wrap);
+      });
+    }
+
+    function copyTextToClipboard(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+      } else {
+        fallbackCopy(text);
+      }
+      showStatus(state.lang === 'hi' ? 'Copy हो गया!' : 'Copied!');
+    }
+
+    function fallbackCopy(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch (_) {}
+      document.body.removeChild(ta);
+    }
+
+    function renderChatFeed() {
+      el.chatFeed.innerHTML = '';
+      const session = getActiveSession();
+      if (!session) return;
+
+      session.messages.forEach((msg, idx) => {
+        const isUser = msg.sender === 'user';
+        const wrapper = document.createElement('div');
+        wrapper.className = 'flex flex-col gap-1 ' + (isUser ? 'items-end' : 'items-start');
+
+        const bubble = document.createElement('div');
+        bubble.className =
+          'max-w-[92%] rounded-2xl px-3.5 py-2 text-xs sm:text-sm leading-relaxed ' +
+          (isUser
+            ? 'bg-white text-black font-medium rounded-br-sm whitespace-pre-line'
+            : 'bg-zinc-900 text-zinc-100 border border-zinc-800 rounded-bl-sm md-content');
+
+        if (isUser) {
+          bubble.textContent = msg.text;
+        } else {
+          bubble.innerHTML = renderMarkdown(msg.text);
+          if (msg.imageDataUrl) {
+            const imgWrap = document.createElement('div');
+            imgWrap.className = 'mt-2 flex flex-col gap-2';
+            const imgEl = document.createElement('img');
+            imgEl.src = msg.imageDataUrl;
+            imgEl.alt = 'Generated photo';
+            imgEl.className = 'max-w-full rounded-xl border border-cyan-500/30';
+            imgWrap.appendChild(imgEl);
+            const imgBtns = document.createElement('div');
+            imgBtns.className = 'flex items-center gap-2';
+            const dl = document.createElement('a');
+            dl.href = msg.imageDataUrl;
+            dl.download = 'saarathi-photo.png';
+            dl.className = 'text-[10px] font-mono-tech px-2.5 py-1 rounded-full bg-black text-cyan-300 border border-cyan-500/40';
+            dl.textContent = '⬇️ Download';
+            const regenImg = document.createElement('button');
+            regenImg.type = 'button';
+            regenImg.className = 'text-[10px] font-mono-tech px-2.5 py-1 rounded-full bg-black text-white border border-zinc-700';
+            regenImg.textContent = '🔄 Regenerate Photo';
+            regenImg.addEventListener('click', () => generatePhoto(msg.imagePrompt || 'creative art'));
+            imgBtns.appendChild(dl);
+            imgBtns.appendChild(regenImg);
+            imgWrap.appendChild(imgBtns);
+            bubble.appendChild(imgWrap);
+          }
+          if (msg.sources && msg.sources.length > 0) {
+            const srcDiv = document.createElement('div');
+            srcDiv.className = 'mt-2 pt-2 border-t border-zinc-800 flex flex-wrap gap-1.5';
+            msg.sources.forEach(src => {
+              const a = document.createElement('a');
+              a.href = src.uri;
+              a.target = '_blank';
+              a.rel = 'noopener noreferrer';
+              a.className = 'text-[10px] font-mono-tech px-2 py-0.5 rounded-full bg-black text-red-400 border border-zinc-700 hover:underline';
+              a.textContent = `🔗 ${src.title || 'Source'}`;
+              srcDiv.appendChild(a);
+            });
+            bubble.appendChild(srcDiv);
+          }
+        }
+        wrapper.appendChild(bubble);
+
+        if (!isUser) {
+          const actions = document.createElement('div');
+          actions.className = 'flex items-center gap-3 px-1 text-[10px] font-mono-tech text-zinc-500';
+
+          const btnCopy = document.createElement('button');
+          btnCopy.type = 'button';
+          btnCopy.className = 'hover:text-white transition';
+          btnCopy.textContent = '📋 Copy';
+          btnCopy.addEventListener('click', () => copyTextToClipboard(msg.text));
+          actions.appendChild(btnCopy);
+
+          const btnSpeakMsg = document.createElement('button');
+          btnSpeakMsg.type = 'button';
+          btnSpeakMsg.className = 'hover:text-white transition';
+          btnSpeakMsg.textContent = '🔊 Speak';
+          btnSpeakMsg.addEventListener('click', () => speak(msg.text));
+          actions.appendChild(btnSpeakMsg);
+
+          if (idx === session.messages.length - 1 && state.lastUserPrompt && state.apiKey) {
+            const btnRegen = document.createElement('button');
+            btnRegen.type = 'button';
+            btnRegen.className = 'hover:text-red-400 transition';
+            btnRegen.textContent = '🔄 Regenerate';
+            btnRegen.addEventListener('click', () => askGeminiAI(state.lastUserPrompt));
+            actions.appendChild(btnRegen);
+          }
+
+          wrapper.appendChild(actions);
+        }
+
+        el.chatFeed.appendChild(wrapper);
+      });
+
+      el.chatFeed.scrollTop = el.chatFeed.scrollHeight;
+    }
+
+    function addMessage(sender, text, sources = [], extra = {}) {
+      const session = getActiveSession();
+      if (!session) return;
+      if (sender === 'user' && session.messages.filter(m => m.sender === 'user').length === 0) {
+        session.title = text.slice(0, 22) + (text.length > 22 ? '…' : '');
+        renderSessionsList();
+      }
+      session.messages.push({ sender, text, sources, ...extra });
+      saveSessions();
+      renderChatFeed();
+    }
+
+    function showStatus(msg, type = 'info') {
+      el.statusMessage.textContent = msg;
+      el.statusBanner.className =
+        'rounded-full px-4 py-1.5 text-xs font-mono-tech border flex items-center justify-between gap-2 ' +
+        (type === 'error' ? 'bg-red-950/60 border-red-500/50 text-red-300' : 'bg-zinc-900 border-zinc-700 text-zinc-200');
+    }
+
+    function hideStatus() {
+      el.statusBanner.classList.add('hidden');
+    }
+
+    function updateAIBadge() {
+      if (state.apiKey) {
+        el.aiModeBadge.textContent = 'AI Active';
+        el.aiModeBadge.className = 'font-mono-tech text-[10px] uppercase px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/40';
+      } else {
+        el.aiModeBadge.textContent = 'Offline Mode';
+        el.aiModeBadge.className = 'font-mono-tech text-[10px] uppercase px-2 py-0.5 rounded-full bg-zinc-900 text-zinc-400 border border-zinc-700';
+      }
+    }
+
+    function updateHandsFreeBtn() {
+      if (state.handsFree) {
+        el.btnHandsFree.textContent = '🎙️ Hands-Free: ON';
+        el.btnHandsFree.className = 'text-[11px] font-mono-tech px-2.5 py-1 rounded-full bg-red-600/20 text-red-400 border border-red-500/50 transition';
+      } else {
+        el.btnHandsFree.textContent = '🎙️ Hands-Free: OFF';
+        el.btnHandsFree.className = 'text-[11px] font-mono-tech px-2.5 py-1 rounded-full bg-black text-zinc-300 border border-zinc-700 transition';
+      }
+    }
+
+    function updateWebSearchBtn() {
+      if (state.webSearch) {
+        el.btnWebSearch.textContent = '🌐 Web: ON';
+        el.btnWebSearch.className = 'text-[11px] font-mono-tech px-2.5 py-1 rounded-full bg-white text-black font-bold transition';
+      } else {
+        el.btnWebSearch.textContent = '🌐 Web: OFF';
+        el.btnWebSearch.className = 'text-[11px] font-mono-tech px-2.5 py-1 rounded-full bg-black text-zinc-300 border border-zinc-700 transition';
+      }
+    }
+
+    function updateBadge() {
+      const t = i18n[state.lang];
+      if (state.isListening) {
+        el.voiceStateBadge.textContent = t.listening;
+        el.voiceStateBadge.className = 'text-[11px] font-mono-tech px-2.5 py-1 rounded-full bg-red-600/20 text-red-400 border border-red-500/50';
+        el.visualStatusBig.textContent = 'LISTENING...';
+        el.jarvisOrb.classList.add('jarvis-active');
+        el.waveVisualizer.classList.add('wave-active');
+      } else if (state.isThinking) {
+        el.voiceStateBadge.textContent = t.thinking;
+        el.voiceStateBadge.className = 'text-[11px] font-mono-tech px-2.5 py-1 rounded-full bg-zinc-800 text-white border border-zinc-600';
+        el.visualStatusBig.textContent = 'THINKING...';
+        el.jarvisOrb.classList.add('jarvis-active');
+        el.waveVisualizer.classList.add('wave-active');
+      } else if (state.isSpeaking) {
+        el.voiceStateBadge.textContent = t.speaking;
+        el.voiceStateBadge.className = 'text-[11px] font-mono-tech px-2.5 py-1 rounded-full bg-white text-black font-bold';
+        el.visualStatusBig.textContent = 'SPEAKING...';
+        el.jarvisOrb.classList.add('jarvis-active');
+        el.waveVisualizer.classList.add('wave-active');
+      } else {
+        el.voiceStateBadge.textContent = t.ready;
+        el.voiceStateBadge.className = 'text-[11px] font-mono-tech px-2.5 py-1 rounded-full bg-zinc-900 text-zinc-400 border border-zinc-700';
+        el.visualStatusBig.textContent = 'STANDBY • READY';
+        el.jarvisOrb.classList.remove('jarvis-active');
+        el.waveVisualizer.classList.remove('wave-active');
+      }
+    }
+
+    function updateLanguageUI() {
+      const t = i18n[state.lang];
+      el.subtitleText.textContent = t.subtitle;
+      el.apiKeyLabel.textContent = t.apiKeyLabel;
+      el.docTitleLabel.textContent = t.docTitle;
+      el.btnLoadSample.textContent = t.loadSample;
+      el.docInput.placeholder = t.placeholderDoc;
+      el.btnReadDocText.textContent = t.readDoc;
+      el.btnExplainDocText.textContent = t.explainDoc;
+      el.btnStopSpeech.textContent = t.stop;
+      el.chatTitleLabel.textContent = t.chatTitle;
+      el.textQuery.placeholder = t.placeholderQuery;
+      el.btnSend.textContent = t.send;
+
+      if (state.lang === 'en') {
+        el.btnLangEn.className = 'px-2.5 py-0.5 text-[11px] font-mono-tech rounded-full transition bg-white text-black font-bold';
+        el.btnLangHi.className = 'px-2.5 py-0.5 text-[11px] font-mono-tech rounded-full transition text-zinc-400 hover:text-white';
+      } else {
+        el.btnLangHi.className = 'px-2.5 py-0.5 text-[11px] font-mono-tech rounded-full transition bg-white text-black font-bold';
+        el.btnLangEn.className = 'px-2.5 py-0.5 text-[11px] font-mono-tech rounded-full transition text-zinc-400 hover:text-white';
+      }
+      updateBadge();
+    }
+
+    function updateDocStats() {
+      const text = el.docInput.value.trim();
+      const words = text ? text.split(/\s+/).length : 0;
+      el.docStats.textContent = state.lang === 'hi' ? `${words} शब्द (words)` : `${words} words`;
+      el.docStatsMini.textContent = `${words} WORDS`;
+    }
+
+    function saveSkillsToStorage() {
+      try { localStorage.setItem('saarathi_custom_skills', JSON.stringify(state.customSkills)); } catch (_) {}
+    }
+
+    function renderCustomSkills() {
+      el.customSkillChips.innerHTML = '';
+      el.savedSkillsList.innerHTML = '';
+
+      state.customSkills.forEach(skill => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'text-[11px] font-mono-tech px-2.5 py-1 rounded-full bg-zinc-900 hover:bg-zinc-800 text-red-400 border border-red-500/30 transition';
+        chip.textContent = `🧩 ${skill.name}`;
+        chip.addEventListener('click', () => handleUserQuery(skill.prompt));
+        el.customSkillChips.appendChild(chip);
+
+        const tag = document.createElement('span');
+        tag.className = 'inline-flex items-center gap-1.5 text-[11px] font-mono-tech px-2.5 py-1 rounded-full bg-black text-zinc-200 border border-zinc-700';
+        tag.textContent = `${skill.name} ("${skill.trigger}")`;
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'text-red-400 font-bold';
+        del.textContent = '×';
+        del.addEventListener('click', () => {
+          state.customSkills = state.customSkills.filter(s => s.id !== skill.id);
+          saveSkillsToStorage();
+          renderCustomSkills();
+        });
+        tag.appendChild(del);
+        el.savedSkillsList.appendChild(tag);
+      });
+      updateToolsCount();
+    }
+
+    function speak(text) {
+      if (!('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+      const cleanForSpeech = text.replace(/```[\s\S]*?```/g, 'Code block shown on screen.').replace(/[*_`#]/g, '');
+      const utterance = new SpeechSynthesisUtterance(cleanForSpeech);
+      utterance.lang = state.lang === 'hi' ? 'hi-IN' : 'en-IN';
+      utterance.rate = 1.0;
+
+      utterance.onstart = () => { state.isSpeaking = true; updateBadge(); };
+      utterance.onend = () => {
+        state.isSpeaking = false;
+        updateBadge();
+        if (state.handsFree && !state.isListening) {
+          setTimeout(() => {
+            if (state.handsFree && !state.isListening && !state.isSpeaking) startListening();
+          }, 350);
+        }
+      };
+      utterance.onerror = () => { state.isSpeaking = false; updateBadge(); };
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function stopSpeaking() {
+      state.handsFree = false;
+      updateHandsFreeBtn();
+    updateWakeWordBtn();
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      state.isSpeaking = false;
+      updateBadge();
+    }
+
+    function captureVideoFrame() {
+      const v = el.videoPreview;
+      if (!v || v.classList.contains('hidden') || !v.videoWidth) return null;
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.min(v.videoWidth, 640);
+      canvas.height = Math.round((canvas.width / v.videoWidth) * v.videoHeight);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+    }
+
+    // --- Real Photo Generate & Regenerate ---
+    async function generatePhoto(promptText) {
+      const cleanPrompt = promptText.replace(/^(generate photo|create image|make image|photo banao|image banao|draw)[:\s]*/i, '').trim() || 'futuristic sci-fi city';
+      if (!state.apiKey) {
+        const msg = state.lang === 'hi'
+          ? 'Photo बनाने के लिए पहले ऊपर 🔑 AI Key डालें!'
+          : 'Please add your 🔑 AI Key above to generate photos!';
+        addMessage('assistant', msg);
+        speak(msg);
+        return;
+      }
+
+      state.isThinking = true;
+      updateBadge();
+      showStatus(state.lang === 'hi' ? 'Photo बना रहा हूँ...' : 'Generating photo...');
+
+      try {
+        const imgModels = ['gemini-2.0-flash-exp-image-generation', 'gemini-2.5-flash-image-preview', 'gemini-3.5-flash-lite'];
+        let imageDataUrl = null;
+        let lastErr = '';
+
+        for (const mdl of imgModels) {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(mdl)}:generateContent?key=${encodeURIComponent(state.apiKey)}`;
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ role: 'user', parts: [{ text: `Generate an image: ${cleanPrompt}` }] }],
+              generationConfig: { responseModalities: ['IMAGE', 'TEXT'] }
+            })
+          });
+          const data = await res.json();
+          if (res.ok) {
+            const parts = data?.candidates?.[0]?.content?.parts || [];
+            const imgPart = parts.find(pt => pt.inlineData && pt.inlineData.data);
+            if (imgPart) {
+              const mime = imgPart.inlineData.mimeType || 'image/png';
+              imageDataUrl = `data:${mime};base64,${imgPart.inlineData.data}`;
+              break;
+            }
+          }
+          lastErr = data?.error?.message || `HTTP ${res.status}`;
+        }
+
+        if (!imageDataUrl) {
+          throw new Error(lastErr || 'Image model unavailable on this API key tier.');
+        }
+
+        const okMsg = state.lang === 'hi' ? `यह रही आपकी photo: "${cleanPrompt}"` : `Here is your generated photo: "${cleanPrompt}"`;
+        addMessage('assistant', okMsg, [], { imageDataUrl, imagePrompt: cleanPrompt });
+        speak(okMsg);
+      } catch (err) {
+        const errText = state.lang === 'hi'
+          ? `Photo generate नहीं हो पाई (${err.message}).`
+          : `Could not generate photo (${err.message}).`;
+        showStatus(errText, 'error');
+        addMessage('assistant', errText);
+      } finally {
+        state.isThinking = false;
+        updateBadge();
+      }
+    }
+
+    async function askGeminiAI(userPrompt) {
+      state.isThinking = true;
+      state.lastUserPrompt = userPrompt;
+      updateBadge();
+
+      const langInstruction =
+        state.lang === 'hi'
+          ? 'Respond in simple, natural Hindi (Devanagari or easy Hinglish).'
+          : 'Respond in clear, natural English.';
+      const personaText = personaInstructions[state.persona] || personaInstructions.assistant;
+
+      const docText = el.docInput.value.trim();
+      const parts = [];
+
+      const nowStr = new Date().toLocaleString();
+      const memBlock = state.memories.length > 0
+        ? '\nLearned facts & user preferences (always follow these):\n- ' + state.memories.map(m => m.text).join('\n- ') + '\n'
+        : '';
+      let contextPrefix = `You are Saarathi (सारथि), a self-learning bilingual AI assistant. Current local date and time: ${nowStr}. ${personaText} ${langInstruction} Format with Markdown (bullet points, bold, or fenced code blocks when helpful).${memBlock}If the user shares a new personal fact, preference, name, goal, or correction to remember for future chats, append a single tag at the very end of your reply like [LEARN: User prefers short answers]. Only add [LEARN: ...] when a genuinely new enduring preference or fact is shared.\n`;
+      if (docText) {
+        contextPrefix += `\nUser's uploaded document text:\n"""\n${docText.slice(0, 18000)}\n"""\n`;
+      }
+      parts.push({ text: contextPrefix + '\nUser request: ' + userPrompt });
+
+      if (state.mediaInfo && state.mediaInfo.type === 'photo' && state.mediaInfo.base64) {
+        parts.push({
+          inline_data: {
+            mime_type: state.mediaInfo.mimeType || 'image/jpeg',
+            data: state.mediaInfo.base64
+          }
+        });
+      } else if (state.mediaInfo && state.mediaInfo.type === 'video') {
+        const frameBase64 = captureVideoFrame();
+        if (frameBase64) {
+          parts.push({ inline_data: { mime_type: 'image/jpeg', data: frameBase64 } });
+          parts.push({ text: '(Attached is the current frame from the uploaded video.)' });
+        }
+      }
+
+      const session = getActiveSession();
+      const recentHistory = (session ? session.messages : [])
+        .slice(-7, -1)
+        .map(m => ({ role: m.sender === 'user' ? 'user' : 'model', parts: [{ text: m.text }] }));
+
+      const contents = [...recentHistory, { role: 'user', parts }];
+      const payload = { contents };
+      if (state.webSearch) payload.tools = [{ google_search: {} }];
+
+      try {
+        const candidates = [state.model, 'gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-2.0-flash', 'gemini-2.5-flash']
+          .filter((v, i, a) => v && a.indexOf(v) === i);
+
+        let res, data, lastErr = '';
+        for (const mdl of candidates) {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(mdl)}:generateContent?key=${encodeURIComponent(state.apiKey)}`;
+          res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          data = await res.json();
+
+          if (!res.ok && state.webSearch) {
+            const noToolPayload = { contents: payload.contents };
+            res = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(noToolPayload)
+            });
+            data = await res.json();
+          }
+
+          if (res.ok) break;
+          lastErr = data?.error?.message || `HTTP ${res.status}`;
+          if (res.status !== 503 && res.status !== 404 && !/high demand|not found/i.test(lastErr)) break;
+        }
+
+        if (!res || !res.ok) throw new Error(lastErr || 'Request failed');
+
+        const candidate = data?.candidates?.[0];
+        let reply =
+          candidate?.content?.parts?.[0]?.text ||
+          (state.lang === 'hi' ? 'क्षमा करें, कोई उत्तर नहीं मिला।' : 'Sorry, I could not generate a response.');
+
+        const learnMatches = [...reply.matchAll(/\[LEARN:\s*([^\]]+)\]/gi)];
+        if (learnMatches.length > 0) {
+          learnMatches.forEach(m => learnFact(m[1]));
+          reply = reply.replace(/\[LEARN:\s*[^\]]+\]/gi, '').trim();
+        }
+
+        const chunks = candidate?.groundingMetadata?.groundingChunks || [];
+        const sources = chunks
+          .filter(c => c.web && c.web.uri)
+          .slice(0, 4)
+          .map(c => ({ title: c.web.title || 'Web Source', uri: c.web.uri }));
+
+        addMessage('assistant', reply, sources);
+        speak(reply);
+      } catch (err) {
+        const errText =
+          state.lang === 'hi'
+            ? `AI Error: ${err.message}. कृपया अपनी API Key या Model जांचें।`
+            : `AI Error: ${err.message}. Please check your API key or model.`;
+        showStatus(errText, 'error');
+        addMessage('assistant', errText);
+      } finally {
+        state.isThinking = false;
+        updateBadge();
+      }
+    }
+
+    function explainDocumentOffline(docText) {
+      const clean = docText.replace(/\[Page \d+\]\s*/g, '').trim();
+      const lines = clean.split(/\n+/).map(l => l.trim()).filter(Boolean);
+      const sentences = clean.split(/(?<=[.!?।])\s+/).map(s => s.trim()).filter(Boolean);
+      const wordCount = clean ? clean.split(/\s+/).length : 0;
+      const previewPoints = (lines.length > 1 ? lines : sentences).slice(0, 3);
+      return state.lang === 'hi'
+        ? `इस document में ${wordCount} शब्द हैं। मुख्य बिंदु:\n• ` + previewPoints.join('\n• ')
+        : `This document has ${wordCount} words. Key points:\n• ` + previewPoints.join('\n• ');
+    }
+
+    function handleUserQuery(query) {
+      const q = query.trim();
+      if (!q) return;
+
+      addMessage('user', q);
+      el.textQuery.value = '';
+      const lower = q.toLowerCase();
+
+      if (/^(add feature|create feature|make feature|naya feature|feature add)/i.test(lower) || /(feature add karo|feature jodo)/i.test(lower)) {
+        autoBuildFeature(q);
+        return;
+      }
+
+      if (/^(generate photo|create image|make image|photo banao|image banao|draw)\b/i.test(lower)) {
+        generatePhoto(q);
+        return;
+      }
+
+      if (/^(remember|yaad rakhna|save memory|learn this)[:\s]/i.test(lower)) {
+        const fact = q.replace(/^(remember|yaad rakhna|save memory|learn this)[:\s]*/i, '').trim();
+        if (fact) {
+          learnFact(fact);
+          const reply = state.lang === 'hi'
+            ? `ठीक है, मैंने याद रख लिया: "${fact}"`
+            : `Got it! I learned and saved: "${fact}"`;
+          addMessage('assistant', reply);
+          speak(reply);
+          return;
+        }
+      }
+
+      const matchedSkill = state.customSkills.find(s => s.trigger && lower.includes(s.trigger.toLowerCase()));
+      const finalPrompt = matchedSkill ? `${matchedSkill.prompt} (User said: "${q}")` : q;
+
+      if (/(play|start|chalao|चलाओ)/i.test(lower) && !el.videoPreview.classList.contains('hidden')) {
+        el.videoPreview.play();
+        const reply = state.lang === 'hi' ? 'Video चला दिया है।' : 'Playing your video now.';
+        addMessage('assistant', reply);
+        speak(reply);
+        return;
+      }
+
+      if (/(pause|stop video|roko|रोको)/i.test(lower) && !el.videoPreview.classList.contains('hidden')) {
+        el.videoPreview.pause();
+        const reply = state.lang === 'hi' ? 'Video रोक दिया है।' : 'Video paused.';
+        addMessage('assistant', reply);
+        speak(reply);
+        return;
+      }
+
+      if (state.apiKey) {
+        askGeminiAI(finalPrompt);
+        return;
+      }
+
+      const docText = el.docInput.value.trim();
+      if (!docText && !state.mediaInfo) {
+        const reply = i18n[state.lang].noDoc;
+        addMessage('assistant', reply);
+        speak(reply);
+        return;
+      }
+
+      if (/(read|padho|पढ़ो|सुनो|sunao)/i.test(lower) && docText) {
+        const reply = state.lang === 'hi' ? 'ठीक है, मैं आपका document पढ़ रहा हूँ।' : 'Reading your document aloud.';
+        addMessage('assistant', reply);
+        speak(docText.slice(0, 1500));
+        return;
+      }
+
+      if (docText) {
+        const reply = explainDocumentOffline(docText);
+        addMessage('assistant', reply);
+        speak(reply);
+        return;
+      }
+
+      const mediaReply =
+        state.lang === 'hi'
+          ? `आपने ${state.mediaInfo.name} upload किया है। AI से इसे समझाने के लिए ऊपर 🔑 AI Key में अपनी Gemini Key डालें!`
+          : `You uploaded ${state.mediaInfo.name}. Paste your Gemini API key above so I can see and explain it!`;
+      addMessage('assistant', mediaReply);
+      speak(mediaReply);
+    }
+
+    async function extractPdfText(file) {
+      if (!window.pdfjsLib) { showStatus('PDF reader library could not load.', 'error'); return; }
+      showStatus(i18n[state.lang].pdfLoading);
+      try {
+        const buffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+        let fullText = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          fullText += `[Page ${i}]\n${content.items.map(it => it.str).join(' ')}\n\n`;
+        }
+        el.docInput.value = fullText.trim();
+        updateDocStats();
+        const msg = i18n[state.lang].pdfDone(file.name, pdf.numPages);
+        showStatus(msg);
+        addMessage('assistant', msg);
+        speak(msg);
+      } catch (err) {
+        showStatus('Could not read this PDF file.', 'error');
+      }
+    }
+
+    let recognition = null;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    function startListening() {
+      if (!SpeechRecognition) { showStatus(i18n[state.lang].micUnsupported, 'error'); return; }
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      recognition = new SpeechRecognition();
+      recognition.lang = state.lang === 'hi' ? 'hi-IN' : 'en-IN';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => { state.isListening = true; el.btnMic.classList.add('mic-pulse'); updateBadge(); };
+      recognition.onresult = (event) => handleUserQuery(event.results[0][0].transcript);
+      recognition.onerror = () => { state.handsFree = false; updateHandsFreeBtn(); showStatus(i18n[state.lang].micError, 'error'); };
+      recognition.onend = () => { state.isListening = false; el.btnMic.classList.remove('mic-pulse'); updateBadge(); };
+      try { recognition.start(); } catch (_) { showStatus(i18n[state.lang].micError, 'error'); }
+    }
+
+    function toggleListening() {
+      if (state.isListening && recognition) {
+        state.handsFree = false;
+        updateHandsFreeBtn();
+        recognition.stop();
+        return;
+      }
+      startListening();
+    }
+
+    async function saveAndTestKey() {
+      const key = el.apiKeyInput.value.trim();
+      if (!key) { showStatus(state.lang === 'hi' ? 'कृपया पहले API Key डालें।' : 'Please paste an API key first.', 'error'); return; }
+      state.apiKey = key;
+      state.model = el.modelSelect.value;
+      try { localStorage.setItem('jarvis_gemini_key', key); localStorage.setItem('jarvis_gemini_model', state.model); } catch (_) {}
+
+      updateAIBadge();
+      showStatus(state.lang === 'hi' ? 'Key चेक कर रहा हूँ...' : 'Testing API key...');
+
+      try {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const available = (data.models || [])
+          .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+          .map(m => m.name.replace('models/', ''));
+
+        if (available.length > 0 && !available.includes(state.model)) {
+          const preferred = available.find(m => m.includes('flash')) || available[0];
+          state.model = preferred;
+          if (![...el.modelSelect.options].some(o => o.value === preferred)) {
+            const opt = document.createElement('option');
+            opt.value = preferred;
+            opt.textContent = preferred;
+            el.modelSelect.appendChild(opt);
+          }
+          el.modelSelect.value = preferred;
+          try { localStorage.setItem('jarvis_gemini_model', preferred); } catch (_) {}
+        }
+
+        const okMsg = state.lang === 'hi' ? `Saarathi AI चालू! (${state.model})` : `Saarathi AI active! (${state.model})`;
+        showStatus(okMsg);
+        el.apiKeyBar.classList.add('hidden');
+        addMessage('assistant', okMsg);
+        speak(okMsg);
+      } catch (err) {
+        showStatus(`Key check failed (${err.message}).`, 'error');
+      }
+    }
+
+    el.btnToggleMemory.addEventListener('click', () => el.memoryDrawer.classList.toggle('hidden'));
+    el.btnCloseMemory.addEventListener('click', () => el.memoryDrawer.classList.add('hidden'));
+    el.btnAddMemory.addEventListener('click', () => {
+      const val = el.memoryInput.value.trim();
+      if (!val) return;
+      el.memoryInput.value = '';
+      learnFact(val);
+    });
+    el.memoryInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') el.btnAddMemory.click(); });
+
+    el.btnToggleChats.addEventListener('click', () => el.chatsDrawer.classList.toggle('hidden'));
+    el.btnCloseChats.addEventListener('click', () => el.chatsDrawer.classList.add('hidden'));
+    el.btnNewChat.addEventListener('click', () => createNewSession(true));
+
+    el.btnToggleKeyBar.addEventListener('click', () => el.apiKeyBar.classList.toggle('hidden'));
+    el.btnToggleSkillBar.addEventListener('click', () => el.customSkillBar.classList.toggle('hidden'));
+    el.btnCloseSkillBar.addEventListener('click', () => el.customSkillBar.classList.add('hidden'));
+
+    el.btnAutoBuild.addEventListener('click', () => {
+      const cmd = el.autoBuildInput.value.trim();
+      if (!cmd) return;
+      el.autoBuildInput.value = '';
+      autoBuildFeature(cmd);
+    });
+    el.autoBuildInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') el.btnAutoBuild.click(); });
+
+    const phoneInstallModal = document.getElementById('phoneInstallModal');
+    document.getElementById('btnPhoneInstall').addEventListener('click', () => phoneInstallModal.classList.toggle('hidden'));
+    document.getElementById('btnCloseInstallModal').addEventListener('click', () => phoneInstallModal.classList.add('hidden'));
+
+    el.btnDownloadApp.addEventListener('click', () => {
+      const html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'saarathi-assistant.html';
+      a.click();
+      URL.revokeObjectURL(url);
+      showStatus(state.lang === 'hi' ? 'App डाउनलोड हो गया!' : 'Downloaded saarathi-assistant.html!');
+    });
+
+    el.personaSelect.addEventListener('change', () => {
+      state.persona = el.personaSelect.value;
+      showStatus(`Mode: ${el.personaSelect.options[el.personaSelect.selectedIndex].text}`);
+    });
+
+    el.btnWebSearch.addEventListener('click', () => { state.webSearch = !state.webSearch; updateWebSearchBtn(); });
+
+    el.btnAddSkill.addEventListener('click', () => {
+      const name = el.skillNameInput.value.trim();
+      const trigger = el.skillTriggerInput.value.trim() || name.toLowerCase();
+      const prompt = el.skillPromptInput.value.trim();
+      if (!name || !prompt) { showStatus('Enter Name and Instruction.', 'error'); return; }
+      state.customSkills.push({ id: 'skill-' + Date.now(), name, trigger, prompt });
+      saveSkillsToStorage();
+      renderCustomSkills();
+      el.skillNameInput.value = '';
+      el.skillTriggerInput.value = '';
+      el.skillPromptInput.value = '';
+      showStatus(`Added "${name}"!`);
+    });
+
+    el.btnHandsFree.addEventListener('click', () => {
+      state.handsFree = !state.handsFree;
+      updateHandsFreeBtn();
+      if (state.handsFree && !state.isListening && !state.isSpeaking) startListening();
+    });
+
+    el.btnExportNotes.addEventListener('click', () => {
+      const docText = el.docInput.value.trim();
+      const session = getActiveSession();
+      const log = session ? session.messages.map(m => `${m.sender === 'user' ? 'You' : 'Saarathi'}: ${m.text}`) : [];
+      const content = `=== SAARATHI NOTES ===\n${new Date().toLocaleString()}\n\n${docText ? '--- DOC ---\n' + docText + '\n\n' : ''}${log.join('\n\n')}`;
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'saarathi-notes.txt';
+      a.click();
+      URL.revokeObjectURL(url);
+      showStatus('Saved saarathi-notes.txt!');
+    });
+
+    el.btnSaveKey.addEventListener('click', saveAndTestKey);
+    el.btnClearKey.addEventListener('click', () => {
+      state.apiKey = '';
+      el.apiKeyInput.value = '';
+      try { localStorage.removeItem('jarvis_gemini_key'); } catch (_) {}
+      updateAIBadge();
+      showStatus('API key cleared.');
+    });
+    el.modelSelect.addEventListener('change', () => {
+      state.model = el.modelSelect.value;
+      try { localStorage.setItem('jarvis_gemini_model', state.model); } catch (_) {}
+    });
+
+    el.btnLangEn.addEventListener('click', () => { state.lang = 'en'; updateLanguageUI(); updateDocStats(); });
+    el.btnLangHi.addEventListener('click', () => { state.lang = 'hi'; updateLanguageUI(); updateDocStats(); });
+    el.btnCloseStatus.addEventListener('click', hideStatus);
+
+    el.btnLoadSample.addEventListener('click', () => {
+      el.docInput.value = i18n[state.lang].sampleDoc;
+      updateDocStats();
+      hideStatus();
+    });
+
+    el.fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+        extractPdfText(file);
+      } else {
+        const reader = new FileReader();
+        reader.onload = (ev) => { el.docInput.value = ev.target.result; updateDocStats(); showStatus(`Loaded "${file.name}"!`); };
+        reader.readAsText(file);
+      }
+    });
+
+    el.photoInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const dataUrl = ev.target.result;
+        const base64 = dataUrl.split(',')[1];
+        el.mediaPreviewBox.classList.remove('hidden');
+        el.videoPreview.classList.add('hidden');
+        el.videoPreview.pause();
+        el.photoPreview.src = dataUrl;
+        el.photoPreview.classList.remove('hidden');
+
+        el.photoPreview.onload = () => {
+          const sizeKB = Math.round(file.size / 1024);
+          const dims = `${el.photoPreview.naturalWidth}×${el.photoPreview.naturalHeight}px`;
+          el.mediaMetaLabel.textContent = `🖼️ ${file.name} (${dims}, ${sizeKB} KB)`;
+          state.mediaInfo = { type: 'photo', name: file.name, sizeKB, mimeType: file.type || 'image/jpeg', base64 };
+          if (state.apiKey) {
+            handleUserQuery(state.lang === 'hi' ? 'इस photo को देखकर समझाओ।' : 'Look at this photo and explain what is in it.');
+          } else {
+            addMessage('assistant', `Loaded photo "${file.name}"!`);
+          }
+        };
+      };
+      reader.readAsDataURL(file);
+    });
+
+    el.videoInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      el.mediaPreviewBox.classList.remove('hidden');
+      el.photoPreview.classList.add('hidden');
+      el.videoPreview.src = url;
+      el.videoPreview.classList.remove('hidden');
+
+      el.videoPreview.onloadedmetadata = () => {
+        const sizeKB = Math.round(file.size / 1024);
+        const dur = Math.round(el.videoPreview.duration || 0);
+        el.mediaMetaLabel.textContent = `🎬 ${file.name} (${dur}s, ${sizeKB} KB)`;
+        state.mediaInfo = { type: 'video', name: file.name, sizeKB };
+        addMessage('assistant', `Video "${file.name}" (${dur}s) ready!`);
+      };
+    });
+
+    el.btnAnalyzeMedia.addEventListener('click', () => {
+      if (!state.mediaInfo) return;
+      handleUserQuery(state.lang === 'hi' ? 'इस media में जो दिख रहा है उसे आसान भाषा में समझाओ।' : 'Describe and explain what you see in this media.');
+    });
+
+    el.btnClearMedia.addEventListener('click', () => {
+      el.videoPreview.pause();
+      el.videoPreview.removeAttribute('src');
+      el.photoPreview.removeAttribute('src');
+      el.mediaPreviewBox.classList.add('hidden');
+      state.mediaInfo = null;
+    });
+
+    el.docInput.addEventListener('input', updateDocStats);
+
+    el.btnReadDoc.addEventListener('click', () => {
+      const text = el.docInput.value.trim();
+      if (!text) { showStatus(i18n[state.lang].noDoc, 'error'); return; }
+      speak(text.slice(0, 1500));
+    });
+
+    el.btnExplainDoc.addEventListener('click', () => {
+      const text = el.docInput.value.trim();
+      if (!text) { showStatus(i18n[state.lang].noDoc, 'error'); return; }
+      handleUserQuery(state.lang === 'hi' ? 'इस पूरे document को आसान भाषा में समझाओ।' : 'Explain this entire document simply.');
+    });
+
+    el.btnStopSpeech.addEventListener('click', stopSpeaking);
+    el.btnMic.addEventListener('click', toggleListening);
+    el.btnSend.addEventListener('click', () => handleUserQuery(el.textQuery.value));
+    el.textQuery.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleUserQuery(el.textQuery.value); });
+
+    document.querySelectorAll('.quick-cmd').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const cmd = btn.getAttribute('data-cmd');
+        if (cmd === 'explain') handleUserQuery(state.lang === 'hi' ? 'इसे आसान भाषा में समझाओ।' : 'Explain this simply.');
+        if (cmd === 'read') {
+          const text = el.docInput.value.trim();
+          if (text) speak(text.slice(0, 1500));
+          else showStatus(i18n[state.lang].noDoc, 'error');
+        }
+        if (cmd === 'genphoto') {
+          el.textQuery.value = 'Generate photo: ';
+          el.textQuery.focus();
+        }
+        if (cmd === 'media') {
+          if (state.mediaInfo) handleUserQuery(state.lang === 'hi' ? 'इस media में क्या दिख रहा है?' : 'What do you see in this media?');
+          else showStatus('Upload a photo or video first.', 'error');
+        }
+      });
+    });
+
+    // --- 4-Digit PIN Lock (1947) ---
+    const FIXED_PIN = '1947';
+    const pinLockScreen = document.getElementById('pinLockScreen');
+    const pinInput = document.getElementById('pinInput');
+    const pinError = document.getElementById('pinError');
+    const btnUnlockApp = document.getElementById('btnUnlockApp');
+    const btnLockApp = document.getElementById('btnLockApp');
+
+    function tryUnlock() {
+      if (pinInput.value.trim() === FIXED_PIN) {
+        pinError.classList.add('hidden');
+        pinInput.value = '';
+        pinLockScreen.classList.add('hidden');
+      } else {
+        pinError.classList.remove('hidden');
+        pinInput.value = '';
+        pinInput.focus();
+      }
+    }
+
+    btnUnlockApp.addEventListener('click', tryUnlock);
+    pinInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') tryUnlock(); });
+    pinInput.addEventListener('input', () => { if (pinInput.value.length === 4) tryUnlock(); });
+    btnLockApp.addEventListener('click', () => {
+      pinInput.value = '';
+      pinError.classList.add('hidden');
+      pinLockScreen.classList.remove('hidden');
+      pinInput.focus();
+    });
+
+    // --- Initialize ---
+    if (state.apiKey) {
+      el.apiKeyInput.value = state.apiKey;
+      el.apiKeyBar.classList.add('hidden');
+    }
+    if ([...el.modelSelect.options].some(o => o.value === state.model)) {
+      el.modelSelect.value = state.model;
+    }
+    if (state.sessions.length === 0) {
+      createNewSession(true);
+    } else {
+      state.activeSessionId = state.sessions[0].id;
+      renderSessionsList();
+      renderChatFeed();
+    }
+    updateAIBadge();
+    updateHandsFreeBtn();
+    updateWebSearchBtn();
+    updateLanguageUI();
+    updateDocStats();
+    renderCustomSkills();
+    renderCustomWidgets();
+  </script>
+</body>
+</html>
