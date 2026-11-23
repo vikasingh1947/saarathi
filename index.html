@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="manifest" href="manifest.json" />
   <title>SAARATHI (सारथि) — Sci-Fi HUD Edition</title>
   <meta name="theme-color" content="#0a0a0c" />
   <meta name="mobile-web-app-capable" content="yes" />
@@ -690,7 +691,12 @@
               <button onclick="reset()" style="padding:6px 14px;border-radius:99px;border:1px solid #3f3f46;background:#18181b;color:#fff;cursor:pointer;">RESET</button>
             </div>
             <script>let s=1500,iv;function show(){document.getElementById('t').textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}function start(){if(iv)return;iv=setInterval(()=>{if(s>0){s--;show();}else{clearInterval(iv);iv=null;}},1000);}function reset(){clearInterval(iv);iv=null;s=1500;show();}<\/script>
-          </body></html>`
+            <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    }
+  </script>
+</body></html>`
         };
       }
       if (/(calc|calculator|math|hisab|जोड़)/i.test(lower)) {
