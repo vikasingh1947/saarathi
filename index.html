@@ -959,7 +959,8 @@
       const parts = [];
       const nowStr = new Date().toLocaleString();
       const memBlock = state.memories.length > 0 ? '\nLearned user preferences:\n- ' + state.memories.map(m => m.text).join('\n- ') + '\n' : '';
-      let contextPrefix = `You are Saarathi (सारथि), a bilingual AI assistant. Current local date and time: ${nowStr}. ${personaText} ${langInstruction}${memBlock}If the user shares a new enduring preference, name, or rule, append [LEARN: short fact] at the end.\n`;
+      const webHint = state.webSearch ? ' Live Google Search is ENABLED—use the search tool for current news, weather, scores, or live updates.' : '';
+      let contextPrefix = `You are Saarathi (सारथि), a bilingual AI assistant. Current local date and time: ${nowStr}.${webHint} ${personaText} ${langInstruction}${memBlock}If the user shares a new enduring preference, name, or rule, append [LEARN: short fact] at the end.\n`;
       if (docText) contextPrefix += `\nUploaded document:\n"""\n${docText.slice(0, 18000)}\n"""\n`;
       parts.push({ text: contextPrefix + '\nUser: ' + userPrompt });
 
@@ -976,19 +977,30 @@
       if (state.webSearch) payload.tools = [{ google_search: {} }];
 
       try {
-        const candidates = [state.model, 'gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-2.0-flash'].filter((v, i, a) => v && v !== 'gemini-2.5-flash' && a.indexOf(v) === i);
+        const candidates = (state.webSearch
+          ? [state.model, 'gemini-2.0-flash', 'gemini-3.8-flash', 'gemini-3.5-flash-lite']
+          : [state.model, 'gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-2.0-flash']
+        ).filter((v, i, a) => v && v !== 'gemini-2.5-flash' && a.indexOf(v) === i);
+
         let res, data, lastErr = '';
+        // Pass 1: Try all models WITH web search if enabled
         for (const mdl of candidates) {
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(mdl)}:generateContent?key=${encodeURIComponent(state.apiKey)}`;
           res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
           data = await res.json();
-          if (!res.ok && state.webSearch) {
-            res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: payload.contents }) });
-            data = await res.json();
-          }
           if (res.ok) break;
           lastErr = data?.error?.message || `HTTP ${res.status}`;
           if (res.status === 401 || /API_KEY_INVALID|invalid api key/i.test(lastErr)) break;
+        }
+        // Pass 2: If webSearch tool failed on every model, retry without tools
+        if ((!res || !res.ok) && state.webSearch && res?.status !== 401) {
+          for (const mdl of candidates) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(mdl)}:generateContent?key=${encodeURIComponent(state.apiKey)}`;
+            res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: payload.contents }) });
+            data = await res.json();
+            if (res.ok) break;
+            lastErr = data?.error?.message || `HTTP ${res.status}`;
+          }
         }
         if (!res || !res.ok) throw new Error(lastErr || 'Request failed');
 
