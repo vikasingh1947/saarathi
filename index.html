@@ -97,7 +97,7 @@
   </div>
 
   <!-- Main Minimalist Shell -->
-  <div class="max-w-5xl w-full mx-auto px-3 py-2.5 flex-1 flex flex-col gap-2.5 h-screen max-h-screen">
+  <div class="max-w-5xl w-full mx-auto px-3 py-2 flex-1 flex flex-col gap-2 h-[100dvh] max-h-[100dvh] overflow-hidden">
 
     <!-- Ultra-Clean Single-Line Top Bar -->
     <header class="hud-card px-3.5 py-2.5 flex items-center justify-between gap-2 shrink-0">
@@ -171,6 +171,43 @@
           <button id="btnSaveKey" type="button" class="px-3.5 py-1.5 rounded-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-mono-tech font-bold">Save &amp; Test</button>
           <button id="btnClearKey" type="button" class="px-3 py-1.5 rounded-full bg-zinc-900 text-zinc-300 text-xs font-mono-tech border border-zinc-700">Clear</button>
         </div>
+      </div>
+
+      <!-- AI Engine & Controls (Cloud / Local Server / Browser Offline + Temp + System Prompt) -->
+      <div class="p-3 rounded-2xl bg-black/70 border border-white/10 flex flex-col gap-2.5">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <span class="font-mono-tech text-[11px] text-cyan-300">⚡ AI Engine &amp; Controls</span>
+          <select id="engineSelect" aria-label="AI Engine" class="text-[11px] font-mono-tech bg-zinc-950 text-white border border-zinc-700 rounded-full px-2.5 py-1">
+            <option value="gemini">☁️ Gemini Cloud</option>
+            <option value="local">🏠 Local Server (Ollama/Pocket)</option>
+            <option value="webllm">⚡ Browser Offline (WebLLM)</option>
+          </select>
+        </div>
+
+        <!-- Local Server Config -->
+        <div id="localServerBox" class="hidden flex flex-col gap-1.5">
+          <input id="localUrlInput" type="text" class="rounded-full bg-zinc-950 border border-zinc-700 px-3 py-1.5 text-xs text-white" placeholder="URL (e.g. http://127.0.0.1:11434/v1/chat/completions)" />
+          <input id="localModelInput" type="text" class="rounded-full bg-zinc-950 border border-zinc-700 px-3 py-1.5 text-xs text-white" placeholder="Model name (e.g. qwen3:1.7b or gemma3)" />
+        </div>
+
+        <!-- WebLLM Offline Config -->
+        <div id="webllmBox" class="hidden flex flex-col gap-1.5">
+          <div class="flex items-center gap-2">
+            <select id="webllmModelSelect" aria-label="Offline Model" class="flex-1 text-[11px] font-mono-tech bg-zinc-950 text-zinc-200 border border-zinc-700 rounded-full px-2.5 py-1.5">
+              <option value="SmolLM2-360M-Instruct-q4f16_1-MLC">SmolLM2 360M (~250MB)</option>
+              <option value="Qwen2.5-0.5B-Instruct-q4f16_1-MLC">Qwen2.5 0.5B (~400MB)</option>
+            </select>
+            <button id="btnLoadWebLLM" type="button" class="px-3 py-1.5 rounded-full bg-cyan-500 text-slate-950 text-[11px] font-mono-tech font-bold shrink-0">Load Model</button>
+          </div>
+          <span id="webllmStatus" class="font-mono-tech text-[10px] text-zinc-400">Requires WebGPU-enabled Chrome.</span>
+        </div>
+
+        <!-- Temperature & Custom System Prompt -->
+        <div class="flex items-center gap-2">
+          <span class="font-mono-tech text-[10px] text-zinc-400 shrink-0">Temp: <strong id="tempValLabel" class="text-cyan-300">0.7</strong></span>
+          <input id="tempSlider" type="range" min="0" max="1.5" step="0.1" value="0.7" class="flex-1 accent-cyan-400" />
+        </div>
+        <input id="customSysPrompt" type="text" class="rounded-full bg-zinc-950 border border-zinc-800 px-3 py-1.5 text-xs text-white placeholder-zinc-600" placeholder="Custom System Prompt (optional)..." />
       </div>
 
       <!-- Memory Box -->
@@ -298,7 +335,7 @@
         </div>
 
         <!-- Full-Height Chat Feed -->
-        <div id="chatFeed" class="flex-1 min-h-0 overflow-y-auto flex flex-col gap-3 pr-1"></div>
+        <div id="chatFeed" class="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y flex flex-col gap-3 pr-1"></div>
 
         <!-- Quick Attach Menu -->
         <div id="chatAttachMenu" class="hidden flex flex-wrap gap-1.5 p-2 rounded-2xl bg-black/90 border border-cyan-500/30 shrink-0">
@@ -395,6 +432,13 @@
       apiKey: '',
       model: 'gemini-3.8-flash',
       selectedVoiceURI: '',
+      engine: 'gemini',
+      localUrl: 'http://127.0.0.1:11434/v1/chat/completions',
+      localModel: 'qwen3:1.7b',
+      temperature: 0.7,
+      customSysPrompt: '',
+      webllmEngine: null,
+      webllmReady: false,
       sessions: [],
       activeSessionId: null,
       customSkills: defaultSkills,
@@ -417,6 +461,11 @@
       if (savedMemories) state.memories = JSON.parse(savedMemories);
       const savedSessions = localStorage.getItem('saarathi_sessions');
       if (savedSessions) state.sessions = JSON.parse(savedSessions);
+      state.engine = localStorage.getItem('saarathi_engine') || 'gemini';
+      state.localUrl = localStorage.getItem('saarathi_local_url') || state.localUrl;
+      state.localModel = localStorage.getItem('saarathi_local_model') || state.localModel;
+      state.temperature = parseFloat(localStorage.getItem('saarathi_temp') || '0.7');
+      state.customSysPrompt = localStorage.getItem('saarathi_sys_prompt') || '';
     } catch (_) {}
 
     const i18n = {
@@ -502,6 +551,17 @@
       btnStopSpeech: document.getElementById('btnStopSpeech'),
       personaSelect: document.getElementById('personaSelect'),
       voiceSelect: document.getElementById('voiceSelect'),
+      engineSelect: document.getElementById('engineSelect'),
+      localServerBox: document.getElementById('localServerBox'),
+      localUrlInput: document.getElementById('localUrlInput'),
+      localModelInput: document.getElementById('localModelInput'),
+      webllmBox: document.getElementById('webllmBox'),
+      webllmModelSelect: document.getElementById('webllmModelSelect'),
+      btnLoadWebLLM: document.getElementById('btnLoadWebLLM'),
+      webllmStatus: document.getElementById('webllmStatus'),
+      tempSlider: document.getElementById('tempSlider'),
+      tempValLabel: document.getElementById('tempValLabel'),
+      customSysPrompt: document.getElementById('customSysPrompt'),
       btnWebSearch: document.getElementById('btnWebSearch'),
       btnHandsFree: document.getElementById('btnHandsFree'),
       btnExportNotes: document.getElementById('btnExportNotes'),
@@ -762,6 +822,12 @@
           const acts = document.createElement('div'); acts.className = 'flex items-center gap-3 px-1 text-[10px] font-mono-tech text-zinc-500';
           const bc = document.createElement('button'); bc.type = 'button'; bc.textContent = '📋 Copy'; bc.addEventListener('click', () => copyTextToClipboard(msg.text)); acts.appendChild(bc);
           const bs = document.createElement('button'); bs.type = 'button'; bs.textContent = '🔊 Speak'; bs.addEventListener('click', () => speak(msg.text)); acts.appendChild(bs);
+          if (msg.perfText) {
+            const sp = document.createElement('span');
+            sp.className = 'text-cyan-400/80';
+            sp.textContent = msg.perfText;
+            acts.appendChild(sp);
+          }
           if (idx === session.messages.length - 1 && state.lastUserPrompt && state.apiKey) {
             const br = document.createElement('button'); br.type = 'button'; br.textContent = '🔄 Retry'; br.addEventListener('click', () => askGeminiAI(state.lastUserPrompt)); acts.appendChild(br);
           }
@@ -769,7 +835,7 @@
         }
         el.chatFeed.appendChild(wrap);
       });
-      el.chatFeed.scrollTop = el.chatFeed.scrollHeight;
+      requestAnimationFrame(() => { el.chatFeed.scrollTop = el.chatFeed.scrollHeight; });
     }
 
     function addMessage(sender, text, sources = [], extra = {}) {
@@ -785,7 +851,13 @@
 
     // --- Status & Badges ---
     function updateAIBadge() {
-      if (state.apiKey) {
+      if (state.engine === 'local') {
+        el.aiModeBadge.textContent = 'Local Server';
+        el.aiModeBadge.className = 'font-mono-tech text-[10px] uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+      } else if (state.engine === 'webllm') {
+        el.aiModeBadge.textContent = state.webllmReady ? 'Offline AI Ready' : 'WebLLM';
+        el.aiModeBadge.className = 'font-mono-tech text-[10px] uppercase px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40';
+      } else if (state.apiKey) {
         el.aiModeBadge.textContent = 'AI Active';
         el.aiModeBadge.className = 'font-mono-tech text-[10px] uppercase px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40';
       } else {
@@ -950,8 +1022,137 @@
       } finally { state.isThinking = false; updateBadge(); }
     }
 
+    // --- Real-Time Live Weather & News Fetcher (Works on any API key tier!) ---
+    async function fetchLiveWebContext(query) {
+      if (!state.webSearch) return '';
+      const q = query.toLowerCase();
+      let liveInfo = '';
+      try {
+        if (/(weather|mausam|temp|temperature|मौसम|तापमान)/i.test(q)) {
+          let city = 'Bhopal';
+          const cityMatch = query.match(/(?:in|of|at|mein|मे)\s+([A-Za-z]+)/i);
+          if (cityMatch && cityMatch[1] && !/^(the|aaj|abhi|today)$/i.test(cityMatch[1])) {
+            city = cityMatch[1];
+          }
+          const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1`);
+          const geoData = await geoRes.json();
+          const loc = geoData?.results?.[0];
+          if (loc) {
+            const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}&current_weather=true`);
+            const wData = await wRes.json();
+            const cw = wData?.current_weather;
+            if (cw) {
+              liveInfo += `\n[LIVE WEATHER for ${loc.name}, ${loc.country || ''}]: Temperature ${cw.temperature}°C, Wind ${cw.windspeed} km/h (Updated: ${cw.time}).\n`;
+            }
+          }
+        }
+        if (/(news|update|headline|khabar|taaza|न्यूज|न्यूज़|खबर|अपडेट|खबरें)/i.test(q)) {
+          const rssUrl = encodeURIComponent('https://news.google.com/rss?hl=en-IN&gl=IN&ceid=IN:en');
+          const nRes = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${rssUrl}`);
+          const nData = await nRes.json();
+          const items = (nData?.items || []).slice(0, 6);
+          if (items.length > 0) {
+            liveInfo += '\n[LIVE INDIA & WORLD NEWS HEADLINES]:\n' +
+              items.map((it, idx) => `${idx + 1}. ${it.title} (${it.pubDate || ''})`).join('\n') + '\n';
+          }
+        }
+      } catch (_) {}
+      return liveInfo;
+    }
+
+    // --- Browser Offline AI (WebLLM) ---
+    async function loadWebLLMModel() {
+      if (!navigator.gpu) {
+        el.webllmStatus.textContent = 'WebGPU not supported on this browser.';
+        showStatus('WebGPU not supported on this device/browser.', 'error');
+        return;
+      }
+      const modelId = el.webllmModelSelect.value;
+      el.webllmStatus.textContent = 'Downloading & initializing model...';
+      el.btnLoadWebLLM.disabled = true;
+      try {
+        const webllm = await import('https://esm.run/@mlc-ai/web-llm');
+        state.webllmEngine = await webllm.CreateMLCEngine(modelId, {
+          initProgressCallback: (p) => {
+            el.webllmStatus.textContent = p.text || `Loading ${Math.round((p.progress || 0) * 100)}%`;
+          }
+        });
+        state.webllmReady = true;
+        el.engineSelect.value = state.engine;
+    el.localUrlInput.value = state.localUrl;
+    el.localModelInput.value = state.localModel;
+    el.tempSlider.value = String(state.temperature);
+    el.tempValLabel.textContent = state.temperature.toFixed(1);
+    el.customSysPrompt.value = state.customSysPrompt;
+    syncEngineBoxes();
+    updateAIBadge();
+        el.webllmStatus.textContent = `Ready: ${modelId}`;
+        showStatus(`Offline AI Ready (${modelId})!`);
+      } catch (err) {
+        el.webllmStatus.textContent = `Error: ${err.message}`;
+        showStatus(`WebLLM Error: ${err.message}`, 'error');
+      } finally {
+        el.btnLoadWebLLM.disabled = false;
+      }
+    }
+
+    // --- Unified AI Router (Gemini / Local Server / WebLLM) ---
+    async function askUnifiedAI(userPrompt) {
+      const t0 = performance.now();
+      state.isThinking = true; state.lastUserPrompt = userPrompt; updateBadge();
+      const langInstruction = state.lang === 'hi' ? 'Respond in simple, natural Hindi (or easy Hinglish).' : 'Respond in clear, natural English.';
+      const personaText = personaInstructions[state.persona] || personaInstructions.assistant;
+      const customSys = state.customSysPrompt ? ` ${state.customSysPrompt}` : '';
+      const docText = el.docInput.value.trim();
+      const nowStr = new Date().toLocaleString();
+      const memBlock = state.memories.length > 0 ? '\nLearned preferences:\n- ' + state.memories.map(m => m.text).join('\n- ') + '\n' : '';
+      const liveData = await fetchLiveWebContext(userPrompt);
+
+      const sysMsg = `You are Saarathi (सारथि). Current time: ${nowStr}. ${personaText}${customSys} ${langInstruction}${memBlock}${liveData}`;
+      const session = getActiveSession();
+      const recent = (session ? session.messages : []).slice(-7, -1).map(m => ({ role: m.sender === 'user' ? 'user' : 'assistant', content: m.text }));
+
+      try {
+        let reply = '';
+        if (state.engine === 'local') {
+          const msgs = [{ role: 'system', content: sysMsg + (docText ? '\nDocument:\n' + docText.slice(0, 12000) : '') }, ...recent, { role: 'user', content: userPrompt }];
+          const res = await fetch(state.localUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: state.localModel, messages: msgs, temperature: state.temperature })
+          });
+          if (!res.ok) throw new Error(`Local server HTTP ${res.status}`);
+          const data = await res.json();
+          reply = data?.choices?.[0]?.message?.content || data?.message?.content || 'No response.';
+        } else if (state.engine === 'webllm') {
+          if (!state.webllmReady || !state.webllmEngine) {
+            throw new Error('Click "Load Model" in Menu → AI Engine first.');
+          }
+          const msgs = [{ role: 'system', content: sysMsg + (docText ? '\nDocument:\n' + docText.slice(0, 4000) : '') }, ...recent, { role: 'user', content: userPrompt }];
+          const out = await state.webllmEngine.chat.completions.create({ messages: msgs, temperature: state.temperature });
+          reply = out?.choices?.[0]?.message?.content || 'No response.';
+        } else {
+          // Default: Gemini Cloud (with temperature + full multimodal + auto-fallback)
+          await askGeminiAI(userPrompt);
+          return;
+        }
+
+        const dt = ((performance.now() - t0) / 1000).toFixed(1);
+        const words = reply.split(/\s+/).length;
+        const tps = (words * 1.3 / Math.max(0.2, parseFloat(dt))).toFixed(1);
+        addMessage('assistant', reply, [], { perfText: `⚡ ${tps} tok/s • ${dt}s` });
+        speak(reply);
+      } catch (err) {
+        const errText = `AI Error: ${err.message}`;
+        showStatus(errText, 'error'); addMessage('assistant', errText);
+      } finally {
+        state.isThinking = false; updateBadge();
+      }
+    }
+
     // --- Gemini AI Brain ---
     async function askGeminiAI(userPrompt) {
+      const t0 = performance.now();
       state.isThinking = true; state.lastUserPrompt = userPrompt; updateBadge();
       const langInstruction = state.lang === 'hi' ? 'Respond in simple, natural Hindi (or easy Hinglish).' : 'Respond in clear, natural English.';
       const personaText = personaInstructions[state.persona] || personaInstructions.assistant;
@@ -960,7 +1161,10 @@
       const nowStr = new Date().toLocaleString();
       const memBlock = state.memories.length > 0 ? '\nLearned user preferences:\n- ' + state.memories.map(m => m.text).join('\n- ') + '\n' : '';
       const webHint = state.webSearch ? ' Live Google Search is ENABLED—use the search tool for current news, weather, scores, or live updates.' : '';
-      let contextPrefix = `You are Saarathi (सारथि), a bilingual AI assistant. Current local date and time: ${nowStr}.${webHint} ${personaText} ${langInstruction}${memBlock}If the user shares a new enduring preference, name, or rule, append [LEARN: short fact] at the end.\n`;
+      const customSys = state.customSysPrompt ? ` ${state.customSysPrompt}` : '';
+      let contextPrefix = `You are Saarathi (सारथि), a bilingual AI assistant. Current local date and time: ${nowStr}.${webHint} ${personaText}${customSys} ${langInstruction}${memBlock}If the user shares a new enduring preference, name, or rule, append [LEARN: short fact] at the end.\n`;
+      const liveData = await fetchLiveWebContext(userPrompt);
+      if (liveData) contextPrefix += liveData;
       if (docText) contextPrefix += `\nUploaded document:\n"""\n${docText.slice(0, 18000)}\n"""\n`;
       parts.push({ text: contextPrefix + '\nUser: ' + userPrompt });
 
@@ -973,7 +1177,7 @@
 
       const session = getActiveSession();
       const recentHistory = (session ? session.messages : []).slice(-7, -1).map(m => ({ role: m.sender === 'user' ? 'user' : 'model', parts: [{ text: m.text }] }));
-      const payload = { contents: [...recentHistory, { role: 'user', parts }] };
+      const payload = { contents: [...recentHistory, { role: 'user', parts }], generationConfig: { temperature: state.temperature } };
       if (state.webSearch) payload.tools = [{ google_search: {} }];
 
       try {
@@ -1012,7 +1216,9 @@
           reply = reply.replace(/\[LEARN:\s*[^\]]+\]/gi, '').trim();
         }
         const sources = (candidate?.groundingMetadata?.groundingChunks || []).filter(c => c.web && c.web.uri).slice(0, 4).map(c => ({ title: c.web.title || 'Source', uri: c.web.uri }));
-        addMessage('assistant', reply, sources);
+        const dt = ((performance.now() - t0) / 1000).toFixed(1);
+        const tps = (reply.split(/\s+/).length * 1.3 / Math.max(0.2, parseFloat(dt))).toFixed(1);
+        addMessage('assistant', reply, sources, { perfText: `⚡ ${tps} tok/s • ${dt}s` });
         speak(reply);
       } catch (err) {
         const errText = `AI Error: ${err.message}`;
@@ -1043,7 +1249,7 @@
 
       const matchedSkill = state.customSkills.find(s => s.trigger && lower.includes(s.trigger.toLowerCase()));
       const finalPrompt = matchedSkill ? `${matchedSkill.prompt} (User: "${q}")` : q;
-      if (state.apiKey) { askGeminiAI(finalPrompt); return; }
+      if (state.engine !== 'gemini' || state.apiKey) { askUnifiedAI(finalPrompt); return; }
 
       const docText = el.docInput.value.trim();
       if (!docText && !state.mediaInfo) { addMessage('assistant', i18n[state.lang].noDoc); return; }
@@ -1157,6 +1363,34 @@
     });
 
     el.personaSelect.addEventListener('change', () => { state.persona = el.personaSelect.value; });
+    function syncEngineBoxes() {
+      el.localServerBox.classList.toggle('hidden', state.engine !== 'local');
+      el.webllmBox.classList.toggle('hidden', state.engine !== 'webllm');
+      updateAIBadge();
+    }
+    el.engineSelect.addEventListener('change', () => {
+      state.engine = el.engineSelect.value;
+      try { localStorage.setItem('saarathi_engine', state.engine); } catch (_) {}
+      syncEngineBoxes();
+    });
+    el.localUrlInput.addEventListener('input', () => {
+      state.localUrl = el.localUrlInput.value.trim();
+      try { localStorage.setItem('saarathi_local_url', state.localUrl); } catch (_) {}
+    });
+    el.localModelInput.addEventListener('input', () => {
+      state.localModel = el.localModelInput.value.trim();
+      try { localStorage.setItem('saarathi_local_model', state.localModel); } catch (_) {}
+    });
+    el.btnLoadWebLLM.addEventListener('click', loadWebLLMModel);
+    el.tempSlider.addEventListener('input', () => {
+      state.temperature = parseFloat(el.tempSlider.value);
+      el.tempValLabel.textContent = state.temperature.toFixed(1);
+      try { localStorage.setItem('saarathi_temp', String(state.temperature)); } catch (_) {}
+    });
+    el.customSysPrompt.addEventListener('input', () => {
+      state.customSysPrompt = el.customSysPrompt.value;
+      try { localStorage.setItem('saarathi_sys_prompt', state.customSysPrompt); } catch (_) {}
+    });
     el.voiceSelect.addEventListener('change', () => { state.selectedVoiceURI = el.voiceSelect.value; speak('Hello!'); });
     el.btnWebSearch.addEventListener('click', () => { state.webSearch = !state.webSearch; updateWebSearchBtn(); });
     el.btnHandsFree.addEventListener('click', () => { state.handsFree = !state.handsFree; updateHandsFreeBtn(); if (state.handsFree && !state.isListening) startListening(); });
