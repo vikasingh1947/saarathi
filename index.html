@@ -140,6 +140,7 @@
         <button id="btnExportNotes" type="button" class="px-3 py-1.5 text-xs font-mono-tech rounded-full bg-black hover:bg-zinc-900 text-zinc-200 border border-zinc-700 transition">💾 Save Notes</button>
         <button id="btnDownloadApp" type="button" class="px-3 py-1.5 text-xs font-mono-tech rounded-full bg-black hover:bg-zinc-900 text-zinc-200 border border-zinc-700 transition">⬇️ Save App</button>
         <button id="btnPhoneInstall" type="button" class="px-3 py-1.5 text-xs font-mono-tech rounded-full bg-black hover:bg-zinc-900 text-zinc-200 border border-zinc-700 transition">📲 Install</button>
+        <button id="btnToggleGithub" type="button" class="px-3 py-1.5 text-xs font-mono-tech rounded-full bg-black hover:bg-zinc-900 text-emerald-300 border border-emerald-500/40 transition">🔄 GitHub</button>
         <button id="btnLockApp" type="button" class="px-3 py-1.5 text-xs font-mono-tech rounded-full bg-black hover:bg-zinc-900 text-red-400 border border-red-500/30 transition">🔒 Lock</button>
       </div>
 
@@ -251,6 +252,23 @@
           <button id="btnAddSkill" type="button" class="px-3 py-1.5 rounded-xl bg-zinc-900 text-white border border-zinc-700 text-xs font-mono-tech">+ Add Feature</button>
         </div>
         <div id="savedSkillsList" class="flex flex-wrap gap-1.5"></div>
+      </div>
+
+      <!-- GitHub Self-Update Box (Simple) -->
+      <div id="githubUpdateBox" class="hidden p-3 rounded-2xl bg-black/70 border border-emerald-500/25 flex flex-col gap-2">
+        <div class="flex items-center justify-between">
+          <span class="font-mono-tech text-xs text-emerald-300">🔄 GitHub Update <span id="ghVersionBadge" class="text-[10px] text-zinc-400">v2.0.0</span></span>
+          <button id="btnCloseGithub" type="button" class="text-xs text-zinc-400 hover:text-white">✕</button>
+        </div>
+        <div class="flex gap-1.5">
+          <input id="ghRepoInput" type="text" class="flex-1 rounded-full bg-zinc-950 border border-zinc-700 focus:border-emerald-400 focus:outline-none px-3 py-1.5 text-xs text-white" placeholder="owner/repo (e.g. rahul/saarathi)" />
+          <button id="btnGhUpdate" type="button" class="px-3.5 py-1.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-mono-tech font-bold shrink-0">🔄 Update</button>
+        </div>
+        <div class="flex gap-1.5">
+          <input id="ghTokenInput" type="password" class="flex-1 rounded-full bg-zinc-950 border border-zinc-800 focus:border-emerald-400 focus:outline-none px-3 py-1.5 text-xs text-white" placeholder="Token (optional, only to Push)" />
+          <button id="btnGhPush" type="button" class="px-3 py-1.5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white border border-zinc-700 text-xs font-mono-tech shrink-0">⬆️ Push</button>
+        </div>
+        <p id="ghStatusText" class="font-mono-tech text-[10px] text-zinc-400">Enter owner/repo and tap Update.</p>
       </div>
 
       <!-- Phone Install Note -->
@@ -445,7 +463,15 @@
       memories: [],
       mediaInfo: null,
       lastUserPrompt: '',
-      reminderTimerId: null
+      reminderTimerId: null,
+      appVersion: '2.0.0',
+      ghRepo: '',
+      ghBranch: 'main',
+      ghPath: 'index.html',
+      ghToken: '',
+      ghLastSha: '',
+      ghPendingHtml: '',
+      ghPendingSha: ''
     };
 
     try {
@@ -465,6 +491,11 @@
       state.localModel = localStorage.getItem('saarathi_local_model') || state.localModel;
       state.temperature = parseFloat(localStorage.getItem('saarathi_temp') || '0.7');
       state.customSysPrompt = localStorage.getItem('saarathi_sys_prompt') || '';
+      state.ghRepo = localStorage.getItem('saarathi_gh_repo') || '';
+      state.ghBranch = localStorage.getItem('saarathi_gh_branch') || 'main';
+      state.ghPath = localStorage.getItem('saarathi_gh_path') || 'index.html';
+      state.ghToken = localStorage.getItem('saarathi_gh_token') || '';
+      state.ghLastSha = localStorage.getItem('saarathi_gh_sha') || '';
     } catch (_) {}
 
     const i18n = {
@@ -525,6 +556,15 @@
       customWidgetsGrid: document.getElementById('customWidgetsGrid'),
       btnDownloadApp: document.getElementById('btnDownloadApp'),
       btnToggleKeyBar: document.getElementById('btnToggleKeyBar'),
+      btnToggleGithub: document.getElementById('btnToggleGithub'),
+      githubUpdateBox: document.getElementById('githubUpdateBox'),
+      btnCloseGithub: document.getElementById('btnCloseGithub'),
+      ghVersionBadge: document.getElementById('ghVersionBadge'),
+      ghRepoInput: document.getElementById('ghRepoInput'),
+      ghTokenInput: document.getElementById('ghTokenInput'),
+      btnGhUpdate: document.getElementById('btnGhUpdate'),
+      btnGhPush: document.getElementById('btnGhPush'),
+      ghStatusText: document.getElementById('ghStatusText'),
       apiKeyBar: document.getElementById('apiKeyBar'),
       apiKeyInput: document.getElementById('apiKeyInput'),
       modelSelect: document.getElementById('modelSelect'),
@@ -637,11 +677,16 @@
       return html || `<p>${escapeHtml(text)}</p>`;
     }
 
+    let statusTimeoutId = null;
     function showStatus(msg, type = 'info') {
       el.statusMessage.textContent = msg;
       el.statusBanner.className =
         'rounded-full px-4 py-1.5 text-xs font-mono-tech border flex items-center justify-between gap-2 shrink-0 ' +
         (type === 'error' ? 'bg-red-950/70 border-red-500/50 text-red-300' : 'bg-zinc-900 border-cyan-500/30 text-cyan-200');
+      if (statusTimeoutId) clearTimeout(statusTimeoutId);
+      if (type !== 'error') {
+        statusTimeoutId = setTimeout(() => { el.statusBanner.classList.add('hidden'); }, 4500);
+      }
     }
     function hideStatus() { el.statusBanner.classList.add('hidden'); }
 
@@ -952,20 +997,39 @@
       const cleanForSpeech = text.replace(/```[\s\S]*?```/g, 'Code shown on screen.').replace(/[*_`#•]/g, '').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '').replace(/\s+/g, ' ').trim();
       if (!cleanForSpeech) return;
       const targetLang = state.lang === 'hi' ? 'hi-IN' : 'en-IN';
-      const utterance = new SpeechSynthesisUtterance(cleanForSpeech);
-      utterance.lang = targetLang;
       const best = getBestNaturalVoice(targetLang);
-      if (best) utterance.voice = best;
-      utterance.rate = 1.0; utterance.pitch = 1.02;
-      utterance.onstart = () => { state.isSpeaking = true; updateBadge(); };
-      utterance.onend = () => {
-        state.isSpeaking = false; updateBadge();
-        if (state.handsFree && !state.isListening) {
-          setTimeout(() => { if (state.handsFree && !state.isListening && !state.isSpeaking) startListening(); }, 350);
+      const chunks = cleanForSpeech.match(/[^.!?।\n]+[.!?।\n]?/g) || [cleanForSpeech];
+      const merged = [];
+      let buf = '';
+      for (const c of chunks) {
+        if ((buf + ' ' + c).trim().length > 200) {
+          if (buf.trim()) merged.push(buf.trim());
+          buf = c;
+        } else {
+          buf = (buf + ' ' + c).trim();
         }
-      };
-      utterance.onerror = () => { state.isSpeaking = false; updateBadge(); };
-      window.speechSynthesis.speak(utterance);
+      }
+      if (buf.trim()) merged.push(buf.trim());
+
+      let idx = 0;
+      function speakNext() {
+        if (idx >= merged.length) {
+          state.isSpeaking = false; updateBadge();
+          if (state.handsFree && !state.isListening) {
+            setTimeout(() => { if (state.handsFree && !state.isListening && !state.isSpeaking) startListening(); }, 350);
+          }
+          return;
+        }
+        const u = new SpeechSynthesisUtterance(merged[idx++]);
+        u.lang = targetLang;
+        if (best) u.voice = best;
+        u.rate = 1.0; u.pitch = 1.02;
+        u.onstart = () => { state.isSpeaking = true; updateBadge(); };
+        u.onend = speakNext;
+        u.onerror = () => { state.isSpeaking = false; updateBadge(); };
+        window.speechSynthesis.speak(u);
+      }
+      speakNext();
     }
     function stopSpeaking() { state.handsFree = false; updateHandsFreeBtn(); if ('speechSynthesis' in window) window.speechSynthesis.cancel(); state.isSpeaking = false; updateBadge(); }
 
@@ -1100,6 +1164,16 @@
         btnLockApp.click();
       } else if (k === 'build') {
         autoBuildFeature(v);
+      } else if (k === 'ghrepo') {
+        state.ghRepo = v;
+        if (el.ghRepoInput) el.ghRepoInput.value = v;
+        try { localStorage.setItem('saarathi_gh_repo', v); } catch (_) {}
+      } else if (k === 'ghcheck') {
+        checkGithubUpdate(true);
+      } else if (k === 'ghapply') {
+        applyGithubUpdate();
+      } else if (k === 'ghpush') {
+        pushGithubUpdate();
       }
       showStatus(`⚡ Self-Updated: ${k} = ${v}`);
     }
@@ -1152,6 +1226,181 @@
         showStatus(`WebLLM Error: ${err.message}`, 'error');
       } finally {
         el.btnLoadWebLLM.disabled = false;
+      }
+    }
+
+    // --- GitHub Self-Update Engine ---
+    function saveGithubSettings() {
+      state.ghRepo = (el.ghRepoInput.value || '').trim();
+      state.ghBranch = 'main';
+      state.ghPath = 'index.html';
+      state.ghToken = (el.ghTokenInput.value || '').trim();
+      try {
+        localStorage.setItem('saarathi_gh_repo', state.ghRepo);
+        localStorage.setItem('saarathi_gh_token', state.ghToken);
+      } catch (_) {}
+    }
+
+    async function oneTapGithubUpdate() {
+      const res = await checkGithubUpdate(false);
+      if (!res) return;
+      if (res.isNew) {
+        await applyGithubUpdate();
+      } else {
+        const msg = `✅ Already up to date (SHA: ${res.remoteSha.slice(0, 7)}).`;
+        el.ghStatusText.textContent = msg;
+        showStatus(msg);
+        addMessage('assistant', msg);
+      }
+    }
+
+    function decodeBase64Utf8(b64) {
+      const bin = atob(b64.replace(/\s/g, ''));
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return new TextDecoder().decode(bytes);
+    }
+
+    function encodeBase64Utf8(str) {
+      const bytes = new TextEncoder().encode(str);
+      let bin = '';
+      for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+      return btoa(bin);
+    }
+
+    async function checkGithubUpdate(announceInChat = false) {
+      saveGithubSettings();
+      if (!state.ghRepo || !state.ghRepo.includes('/')) {
+        const msg = 'Set GitHub Repo (owner/repo) in Menu → GitHub first.';
+        el.ghStatusText.textContent = msg;
+        showStatus(msg, 'error');
+        if (announceInChat) addMessage('assistant', msg);
+        return null;
+      }
+      el.ghStatusText.textContent = `Checking ${state.ghRepo} (${state.ghBranch})...`;
+      showStatus('Checking GitHub for updates...');
+      try {
+        const headers = { 'Accept': 'application/vnd.github.v3+json' };
+        if (state.ghToken) headers['Authorization'] = `Bearer ${state.ghToken}`;
+        const url = `https://api.github.com/repos/${state.ghRepo}/contents/${state.ghPath}?ref=${encodeURIComponent(state.ghBranch)}&_t=${Date.now()}`;
+        const res = await fetch(url, { headers });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.message || `GitHub HTTP ${res.status}`);
+        const remoteSha = data.sha || '';
+        const decodedHtml = data.content ? decodeBase64Utf8(data.content) : '';
+        state.ghPendingHtml = decodedHtml;
+        state.ghPendingSha = remoteSha;
+        const verMatch = decodedHtml.match(/appVersion:\s*'([^']+)'/);
+        const remoteVer = verMatch ? verMatch[1] : '';
+        const shortSha = remoteSha.slice(0, 7);
+        const isNew = !state.ghLastSha || state.ghLastSha !== remoteSha;
+        const msg = isNew
+          ? `✨ Update ready! (${remoteVer ? 'v' + remoteVer + ' • ' : ''}SHA: ${shortSha}). Click "Apply / Download" to update.`
+          : `✅ Already up to date (SHA: ${shortSha}).`;
+        el.ghStatusText.textContent = msg;
+        showStatus(msg);
+        if (announceInChat) { addMessage('assistant', msg); speak(msg); }
+        return { isNew, remoteSha, decodedHtml };
+      } catch (err) {
+        const errMsg = `GitHub Check Error: ${err.message}`;
+        el.ghStatusText.textContent = errMsg;
+        showStatus(errMsg, 'error');
+        if (announceInChat) addMessage('assistant', errMsg);
+        return null;
+      }
+    }
+
+    async function applyGithubUpdate() {
+      let htmlToApply = state.ghPendingHtml;
+      let shaToSave = state.ghPendingSha;
+      if (!htmlToApply) {
+        const res = await checkGithubUpdate(false);
+        if (!res || !res.decodedHtml) return;
+        htmlToApply = res.decodedHtml;
+        shaToSave = res.remoteSha;
+      }
+      if (shaToSave) {
+        state.ghLastSha = shaToSave;
+        try { localStorage.setItem('saarathi_gh_sha', shaToSave); } catch (_) {}
+      }
+      // Clear PWA Service Worker caches if present
+      try {
+        if ('caches' in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k => caches.delete(k)));
+        }
+        if ('serviceWorker' in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(r => r.update()));
+        }
+      } catch (_) {}
+
+      // Trigger download of updated HTML file so local/offline users also get the new build
+      const blob = new Blob([htmlToApply], { type: 'text/html;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = state.ghPath.split('/').pop() || 'index.html';
+      a.click();
+
+      const msg = `✅ Applied & downloaded update (SHA: ${(shaToSave || '').slice(0, 7)}).`;
+      el.ghStatusText.textContent = msg;
+      showStatus(msg);
+      addMessage('assistant', msg);
+      if (location.protocol === 'https:' && !location.hostname.includes('localhost')) {
+        setTimeout(() => { location.reload(); }, 1200);
+      }
+    }
+
+    async function pushGithubUpdate() {
+      saveGithubSettings();
+      if (!state.ghRepo || !state.ghRepo.includes('/')) {
+        const msg = 'Set GitHub Repo (owner/repo) in Menu → GitHub first.';
+        el.ghStatusText.textContent = msg; showStatus(msg, 'error'); return;
+      }
+      if (!state.ghToken) {
+        const msg = 'GitHub Token (with repo write access) is required to push updates.';
+        el.ghStatusText.textContent = msg; showStatus(msg, 'error'); return;
+      }
+      el.ghStatusText.textContent = `Pushing to ${state.ghRepo}...`;
+      showStatus('Pushing Saarathi update to GitHub...');
+      try {
+        const headers = {
+          'Accept': 'application/vnd.github.v3+json',
+          'Authorization': `Bearer ${state.ghToken}`,
+          'Content-Type': 'application/json'
+        };
+        const apiUrl = `https://api.github.com/repos/${state.ghRepo}/contents/${state.ghPath}`;
+        let existingSha = undefined;
+        const getRes = await fetch(`${apiUrl}?ref=${encodeURIComponent(state.ghBranch)}`, { headers });
+        if (getRes.ok) {
+          const getData = await getRes.json();
+          existingSha = getData.sha;
+        }
+        const fullHtml = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+        const bodyPayload = {
+          message: `Saarathi self-update (${new Date().toISOString()})`,
+          content: encodeBase64Utf8(fullHtml),
+          branch: state.ghBranch
+        };
+        if (existingSha) bodyPayload.sha = existingSha;
+
+        const putRes = await fetch(apiUrl, { method: 'PUT', headers, body: JSON.stringify(bodyPayload) });
+        const putData = await putRes.json();
+        if (!putRes.ok) throw new Error(putData?.message || `GitHub HTTP ${putRes.status}`);
+        const newSha = putData?.content?.sha || '';
+        if (newSha) {
+          state.ghLastSha = newSha;
+          try { localStorage.setItem('saarathi_gh_sha', newSha); } catch (_) {}
+        }
+        const msg = `🚀 Pushed to ${state.ghRepo} (${state.ghBranch})! SHA: ${newSha.slice(0, 7)}`;
+        el.ghStatusText.textContent = msg;
+        showStatus(msg);
+        addMessage('assistant', msg);
+      } catch (err) {
+        const errMsg = `GitHub Push Error: ${err.message}`;
+        el.ghStatusText.textContent = errMsg;
+        showStatus(errMsg, 'error');
+        addMessage('assistant', errMsg);
       }
     }
 
@@ -1289,29 +1538,62 @@
 
     function handleUserQuery(query) {
       const q = query.trim();
-      if (!q) return;
+      if (!q || state.isThinking) return;
       const lower = q.toLowerCase();
-      if (/^(clear chat|chat clear|chat saaf|clear history)/i.test(lower)) {
+      if (/(clear|saaf|hatao).*?(chat|history)|(chat|history).*?(clear|saaf|hatao)/i.test(lower)) {
         el.textQuery.value = '';
         applySelfAction('clearchat', '1');
         addMessage('assistant', state.lang === 'hi' ? 'Chat saaf kar di hai!' : 'Chat cleared!');
         return;
       }
-      if (/^(web on|web chalu|enable web|internet on)/i.test(lower)) {
+      if (/(web|wave|internet).*?(on|chalu|enable|start|karo)/i.test(lower) && !/(off|band|disable|stop)/i.test(lower)) {
         el.textQuery.value = '';
         applySelfAction('web', 'on');
-        addMessage('assistant', '🌐 Web Search ON!');
+        const msg = state.lang === 'hi' ? '🌐 Web (Internet) ON kar diya hai!' : '🌐 Web Search ON!';
+        addMessage('assistant', msg); speak(msg);
         return;
       }
-      if (/^(web off|web band|disable web)/i.test(lower)) {
+      if (/(web|wave|internet).*?(off|band|disable|stop)/i.test(lower)) {
         el.textQuery.value = '';
         applySelfAction('web', 'off');
-        addMessage('assistant', '🌐 Web Search OFF!');
+        const msg = state.lang === 'hi' ? '🌐 Web (Internet) OFF kar diya hai!' : '🌐 Web Search OFF!';
+        addMessage('assistant', msg); speak(msg);
+        return;
+      }
+      if (/(auto|hands.?free).*?(on|chalu|enable|start|karo)/i.test(lower) && !/(off|band|disable|stop)/i.test(lower)) {
+        el.textQuery.value = '';
+        applySelfAction('autofree', 'on');
+        const msg = state.lang === 'hi' ? '🎙️ Auto Voice ON kar diya hai!' : '🎙️ Auto Voice ON!';
+        addMessage('assistant', msg); speak(msg);
+        return;
+      }
+      if (/(auto|hands.?free).*?(off|band|disable|stop)/i.test(lower)) {
+        el.textQuery.value = '';
+        applySelfAction('autofree', 'off');
+        const msg = state.lang === 'hi' ? '🎙️ Auto Voice OFF kar diya hai!' : '🎙️ Auto Voice OFF!';
+        addMessage('assistant', msg); speak(msg);
+        return;
+      }
+      if (/(hindi|हिंदी|हिन्दी).*?(on|chalu|karo|lagao|mode|switch)/i.test(lower)) {
+        el.textQuery.value = '';
+        applySelfAction('lang', 'hi');
+        const msg = 'अब मैं हिन्दी में बात करूँगा!';
+        addMessage('assistant', msg); speak(msg);
+        return;
+      }
+      if (/(english|अंग्रेजी).*?(on|chalu|karo|lagao|mode|switch)/i.test(lower)) {
+        el.textQuery.value = '';
+        applySelfAction('lang', 'en');
+        const msg = 'Switched to English!';
+        addMessage('assistant', msg); speak(msg);
         return;
       }
       addMessage('user', q); el.textQuery.value = '';
 
-      if (/^(add feature|create feature|make feature|naya feature|feature add)/i.test(lower) || /(feature add karo|feature jodo)/i.test(lower)) { autoBuildFeature(q); return; }
+      if (/(check|chk).*?(update|github)|(github|app).*?(update check|self.?update)/i.test(lower)) { checkGithubUpdate(true); return; }
+      if (/(apply|install|download).*?(github update|self.?update|update)/i.test(lower)) { applyGithubUpdate(); return; }
+      if (/(push|upload|commit).*?(github)/i.test(lower)) { pushGithubUpdate(); return; }
+            if (/^(add feature|create feature|make feature|naya feature|feature add)/i.test(lower) || /(feature add karo|feature jodo)/i.test(lower)) { autoBuildFeature(q); return; }
       if (/^(generate photo|create image|make image|photo banao|image banao|draw)\b/i.test(lower)) { generatePhoto(q); return; }
       const remMatch = lower.match(/(\d+)\s*(sec|second|min|minute|minutes|मिनट|सेकंड)/i);
       if (remMatch && /(remind|timer|alarm|yaad|रिमाइंडर|अलार्म)/i.test(lower)) {
@@ -1356,6 +1638,7 @@
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     function startListening() {
       if (!SpeechRecognition) { showStatus(i18n[state.lang].micUnsupported, 'error'); return; }
+      if (state.isListening) return;
       if ('speechSynthesis' in window) window.speechSynthesis.cancel();
       recognition = new SpeechRecognition();
       recognition.lang = state.lang === 'hi' ? 'hi-IN' : 'en-IN';
@@ -1406,6 +1689,11 @@
     el.chatAttachMenu.querySelectorAll('label').forEach(l => l.addEventListener('click', () => el.chatAttachMenu.classList.add('hidden')));
 
     el.btnToggleKeyBar.addEventListener('click', () => el.apiKeyBar.classList.toggle('hidden'));
+    el.btnToggleGithub.addEventListener('click', () => el.githubUpdateBox.classList.toggle('hidden'));
+    el.btnCloseGithub.addEventListener('click', () => el.githubUpdateBox.classList.add('hidden'));
+    el.btnGhUpdate.addEventListener('click', oneTapGithubUpdate);
+    el.btnGhPush.addEventListener('click', pushGithubUpdate);
+    [el.ghRepoInput, el.ghTokenInput].forEach(inp => inp.addEventListener('input', saveGithubSettings));
     el.btnToggleMemory.addEventListener('click', () => el.memoryDrawer.classList.toggle('hidden'));
     el.btnCloseMemory.addEventListener('click', () => el.memoryDrawer.classList.add('hidden'));
     el.btnAddMemory.addEventListener('click', () => { const v = el.memoryInput.value.trim(); if (v) { el.memoryInput.value = ''; learnFact(v); } });
@@ -1418,6 +1706,7 @@
     el.btnToggleSkillBar.addEventListener('click', () => el.customSkillBar.classList.toggle('hidden'));
     el.btnCloseSkillBar.addEventListener('click', () => el.customSkillBar.classList.add('hidden'));
     el.btnAutoBuild.addEventListener('click', () => { const c = el.autoBuildInput.value.trim(); if (c) { el.autoBuildInput.value = ''; autoBuildFeature(c); } });
+    el.autoBuildInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') el.btnAutoBuild.click(); });
     el.btnAddSkill.addEventListener('click', () => {
       const name = el.skillNameInput.value.trim(), prompt = el.skillPromptInput.value.trim();
       if (!name || !prompt) return;
@@ -1514,6 +1803,9 @@
 
     // Init
     if (state.apiKey) el.apiKeyInput.value = state.apiKey;
+    el.ghRepoInput.value = state.ghRepo;
+    el.ghTokenInput.value = state.ghToken;
+    if (state.ghLastSha) el.ghStatusText.textContent = `Last synced SHA: ${state.ghLastSha.slice(0, 7)}`;
     if ([...el.modelSelect.options].some(o => o.value === state.model)) el.modelSelect.value = state.model;
     if (state.sessions.length === 0) createNewSession(true);
     else { state.activeSessionId = state.sessions[0].id; renderSessionsList(); renderChatFeed(); }
