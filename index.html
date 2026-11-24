@@ -163,7 +163,6 @@
           <select id="modelSelect" aria-label="AI Model" class="text-[11px] font-mono-tech bg-zinc-950 text-zinc-200 border border-zinc-700 rounded-full px-2.5 py-1">
             <option value="gemini-3.8-flash">gemini-3.8-flash</option>
             <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite</option>
-            <option value="gemini-2.0-flash">gemini-2.0-flash</option>
           </select>
         </div>
         <div class="flex flex-wrap items-center gap-2">
@@ -451,8 +450,8 @@
 
     try {
       state.apiKey = localStorage.getItem('jarvis_gemini_key') || '';
-      state.model = localStorage.getItem('jarvis_gemini_model') || 'gemini-3.8-flash';
-      if (state.model === 'gemini-2.5-flash') state.model = 'gemini-3.8-flash';
+      state.model = localStorage.getItem('jarvis_gemini_model') || 'gemini-3.5-flash-lite';
+      if (state.model === 'gemini-2.5-flash' || state.model === 'gemini-2.0-flash') state.model = 'gemini-3.5-flash-lite';
       const savedSkills = localStorage.getItem('saarathi_custom_skills');
       if (savedSkills) state.customSkills = JSON.parse(savedSkills);
       const savedWidgets = localStorage.getItem('saarathi_custom_widgets');
@@ -1003,7 +1002,7 @@
       if (!state.apiKey) { addMessage('assistant', 'Add your 🔑 AI Key in Menu to generate photos!'); return; }
       state.isThinking = true; updateBadge(); showStatus('Generating photo...');
       try {
-        const imgModels = ['gemini-2.0-flash-exp-image-generation', 'gemini-2.5-flash-image-preview', 'gemini-3.5-flash-lite'];
+        const imgModels = ['gemini-3.5-flash-lite', 'gemini-3.8-flash'];
         let imageDataUrl = null, lastErr = '';
         for (const mdl of imgModels) {
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(mdl)}:generateContent?key=${encodeURIComponent(state.apiKey)}`;
@@ -1060,6 +1059,66 @@
       return liveInfo;
     }
 
+    // --- AI Self-Control Engine ([ACTION: key=val]) ---
+    function applySelfAction(key, val) {
+      const k = key.trim().toLowerCase();
+      const v = val.trim();
+      if (k === 'lang') {
+        state.lang = v.toLowerCase().startsWith('hi') ? 'hi' : 'en';
+        updateLanguageUI();
+      } else if (k === 'web') {
+        state.webSearch = /^(on|true|1|yes)$/i.test(v);
+        updateWebSearchBtn();
+      } else if (k === 'autofree' || k === 'handsfree') {
+        state.handsFree = /^(on|true|1|yes)$/i.test(v);
+        updateHandsFreeBtn();
+      } else if (k === 'persona' && personaInstructions[v.toLowerCase()]) {
+        state.persona = v.toLowerCase();
+        el.personaSelect.value = state.persona;
+      } else if (k === 'temp') {
+        const t = Math.min(1.5, Math.max(0, parseFloat(v)));
+        if (!isNaN(t)) {
+          state.temperature = t;
+          el.tempSlider.value = String(t);
+          el.tempValLabel.textContent = t.toFixed(1);
+          try { localStorage.setItem('saarathi_temp', String(t)); } catch (_) {}
+        }
+      } else if (k === 'model') {
+        state.model = v;
+        if ([...el.modelSelect.options].some(o => o.value === v)) el.modelSelect.value = v;
+        try { localStorage.setItem('jarvis_gemini_model', v); } catch (_) {}
+      } else if (k === 'sysprompt') {
+        state.customSysPrompt = v;
+        el.customSysPrompt.value = v;
+        try { localStorage.setItem('saarathi_sys_prompt', v); } catch (_) {}
+      } else if (k === 'newchat') {
+        createNewSession(true);
+      } else if (k === 'clearchat') {
+        const sess = getActiveSession();
+        if (sess) { sess.messages = []; saveSessions(); renderChatFeed(); }
+      } else if (k === 'lock') {
+        btnLockApp.click();
+      } else if (k === 'build') {
+        autoBuildFeature(v);
+      }
+      showStatus(`⚡ Self-Updated: ${k} = ${v}`);
+    }
+
+    function processControlTags(rawText) {
+      let text = rawText;
+      const learnMatches = [...text.matchAll(/\[LEARN:\s*([^\]]+)\]/gi)];
+      if (learnMatches.length > 0) {
+        learnMatches.forEach(m => learnFact(m[1]));
+        text = text.replace(/\[LEARN:\s*[^\]]+\]/gi, '').trim();
+      }
+      const actionMatches = [...text.matchAll(/\[ACTION:\s*([^=\]]+)=([^\]]+)\]/gi)];
+      if (actionMatches.length > 0) {
+        actionMatches.forEach(m => applySelfAction(m[1], m[2]));
+        text = text.replace(/\[ACTION:\s*[^\]]+\]/gi, '').trim();
+      }
+      return text;
+    }
+
     // --- Browser Offline AI (WebLLM) ---
     async function loadWebLLMModel() {
       if (!navigator.gpu) {
@@ -1108,7 +1167,7 @@
       const memBlock = state.memories.length > 0 ? '\nLearned preferences:\n- ' + state.memories.map(m => m.text).join('\n- ') + '\n' : '';
       const liveData = await fetchLiveWebContext(userPrompt);
 
-      const sysMsg = `You are Saarathi (सारथि). Current time: ${nowStr}. ${personaText}${customSys} ${langInstruction}${memBlock}${liveData}`;
+      const sysMsg = `You are Saarathi (सारथि). Current time: ${nowStr}. ${personaText}${customSys} ${langInstruction}${memBlock}${liveData} IMPORTANT: You ARE the Saarathi app itself. Never say you lack buttons for your own settings. Whenever the user asks to change YOUR settings, clear chat, turn on web/auto, or add a feature/option, execute it by appending [ACTION: key=value] at the end (keys: lang=hi|en, web=on|off, autofree=on|off, clearchat=1, newchat=1, persona=assistant|teacher|coder|summarizer|writer, temp=0.0..1.5, model=gemini-3.5-flash-lite|gemini-3.8-flash, sysprompt=new rule, lock=1, build=feature name).`;
       const session = getActiveSession();
       const recent = (session ? session.messages : []).slice(-7, -1).map(m => ({ role: m.sender === 'user' ? 'user' : 'assistant', content: m.text }));
 
@@ -1140,6 +1199,7 @@
         const dt = ((performance.now() - t0) / 1000).toFixed(1);
         const words = reply.split(/\s+/).length;
         const tps = (words * 1.3 / Math.max(0.2, parseFloat(dt))).toFixed(1);
+        reply = processControlTags(reply);
         addMessage('assistant', reply, [], { perfText: `⚡ ${tps} tok/s • ${dt}s` });
         speak(reply);
       } catch (err) {
@@ -1162,7 +1222,7 @@
       const memBlock = state.memories.length > 0 ? '\nLearned user preferences:\n- ' + state.memories.map(m => m.text).join('\n- ') + '\n' : '';
       const webHint = state.webSearch ? ' Live Google Search is ENABLED—use the search tool for current news, weather, scores, or live updates.' : '';
       const customSys = state.customSysPrompt ? ` ${state.customSysPrompt}` : '';
-      let contextPrefix = `You are Saarathi (सारथि), a bilingual AI assistant. Current local date and time: ${nowStr}.${webHint} ${personaText}${customSys} ${langInstruction}${memBlock}If the user shares a new enduring preference, name, or rule, append [LEARN: short fact] at the end.\n`;
+      let contextPrefix = `You are Saarathi (सारथि), a bilingual AI assistant. Current local date and time: ${nowStr}.${webHint} ${personaText}${customSys} ${langInstruction}${memBlock}If the user shares a new enduring preference, name, or rule, append [LEARN: short fact] at the end. You can also modify your own settings live when asked by appending [ACTION: key=value] at the end (keys: lang=hi|en, web=on|off, autofree=on|off, persona=assistant|teacher|coder|summarizer|writer, temp=0.0..1.5, model=gemini-3.5-flash-lite|gemini-3.8-flash, sysprompt=new rule, newchat=1, lock=1, build=feature name).\n`;
       const liveData = await fetchLiveWebContext(userPrompt);
       if (liveData) contextPrefix += liveData;
       if (docText) contextPrefix += `\nUploaded document:\n"""\n${docText.slice(0, 18000)}\n"""\n`;
@@ -1182,15 +1242,20 @@
 
       try {
         const candidates = (state.webSearch
-          ? [state.model, 'gemini-2.0-flash', 'gemini-3.8-flash', 'gemini-3.5-flash-lite']
-          : [state.model, 'gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-2.0-flash']
-        ).filter((v, i, a) => v && v !== 'gemini-2.5-flash' && a.indexOf(v) === i);
+          ? [state.model, 'gemini-3.5-flash-lite', 'gemini-3.8-flash']
+          : [state.model, 'gemini-3.5-flash-lite', 'gemini-3.8-flash']
+        ).filter((v, i, a) => v && v !== 'gemini-2.5-flash' && v !== 'gemini-2.0-flash' && a.indexOf(v) === i);
 
         let res, data, lastErr = '';
         // Pass 1: Try all models WITH web search if enabled
         for (const mdl of candidates) {
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(mdl)}:generateContent?key=${encodeURIComponent(state.apiKey)}`;
-          res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+          try {
+            res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+          } catch (netErr) {
+            await new Promise(r => setTimeout(r, 600));
+            res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+          }
           data = await res.json();
           if (res.ok) break;
           lastErr = data?.error?.message || `HTTP ${res.status}`;
@@ -1210,11 +1275,7 @@
 
         const candidate = data?.candidates?.[0];
         let reply = candidate?.content?.parts?.[0]?.text || 'No response.';
-        const learnMatches = [...reply.matchAll(/\[LEARN:\s*([^\]]+)\]/gi)];
-        if (learnMatches.length > 0) {
-          learnMatches.forEach(m => learnFact(m[1]));
-          reply = reply.replace(/\[LEARN:\s*[^\]]+\]/gi, '').trim();
-        }
+        reply = processControlTags(reply);
         const sources = (candidate?.groundingMetadata?.groundingChunks || []).filter(c => c.web && c.web.uri).slice(0, 4).map(c => ({ title: c.web.title || 'Source', uri: c.web.uri }));
         const dt = ((performance.now() - t0) / 1000).toFixed(1);
         const tps = (reply.split(/\s+/).length * 1.3 / Math.max(0.2, parseFloat(dt))).toFixed(1);
@@ -1229,8 +1290,26 @@
     function handleUserQuery(query) {
       const q = query.trim();
       if (!q) return;
-      addMessage('user', q); el.textQuery.value = '';
       const lower = q.toLowerCase();
+      if (/^(clear chat|chat clear|chat saaf|clear history)/i.test(lower)) {
+        el.textQuery.value = '';
+        applySelfAction('clearchat', '1');
+        addMessage('assistant', state.lang === 'hi' ? 'Chat saaf kar di hai!' : 'Chat cleared!');
+        return;
+      }
+      if (/^(web on|web chalu|enable web|internet on)/i.test(lower)) {
+        el.textQuery.value = '';
+        applySelfAction('web', 'on');
+        addMessage('assistant', '🌐 Web Search ON!');
+        return;
+      }
+      if (/^(web off|web band|disable web)/i.test(lower)) {
+        el.textQuery.value = '';
+        applySelfAction('web', 'off');
+        addMessage('assistant', '🌐 Web Search OFF!');
+        return;
+      }
+      addMessage('user', q); el.textQuery.value = '';
 
       if (/^(add feature|create feature|make feature|naya feature|feature add)/i.test(lower) || /(feature add karo|feature jodo)/i.test(lower)) { autoBuildFeature(q); return; }
       if (/^(generate photo|create image|make image|photo banao|image banao|draw)\b/i.test(lower)) { generatePhoto(q); return; }
